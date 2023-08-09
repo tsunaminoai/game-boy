@@ -1,5 +1,6 @@
 const std = @import("std");
 
+///The Registers for the CPU
 const CPURegisters = struct {
     A: u8,
     B: u8,
@@ -20,6 +21,18 @@ const CPURegisters = struct {
     CarryFlag: bool,
 };
 
+///The Opcodes for the CPU
+const OPCodes = enum(u8) {
+    ///LD nn,n
+    LDB = 0x06,
+    LDC = 0x0E,
+    LDD = 0x16,
+    LDE = 0x1E,
+    LDH = 0x26,
+    LDL = 0x2E,
+};
+
+///The CPU itself
 const CPU = struct {
     Registers: CPURegisters = undefined,
     Memory: []u8 = &[0]u8{},
@@ -44,6 +57,39 @@ const CPU = struct {
             .HalfCarryFlag = false,
             .CarryFlag = false,
         };
+    }
+
+    pub fn tick(self: *CPU) void {
+        self.Registers.ProgramCounter += 1;
+    }
+    test "Test that the tick increments the counter" {
+        var cpu = CPU{};
+        cpu.init();
+        cpu.tick();
+        try std.testing.expect(cpu.Registers.ProgramCounter == 0x101);
+    }
+
+    fn load(self: *CPU, register: u8, address: u8) void {
+        self.Registers[register] = self.Memory[address];
+    }
+    test "Test that the load opcode function moves whats at the address to the register" {
+        var cpu = CPU{};
+        cpu.init();
+        cpu.Memory[cpu.Registers.ProgramCounter] = 0x06;
+        cpu.Memory[cpu.Registers.ProgramCounter + 1] = 0xFF;
+        cpu.execute();
+        try std.testing.expect(cpu.Registers.B == 0xFF);
+    }
+
+    fn execute(self: *CPU) void {
+        const memoryValue = self.Memory[self.Registers.ProgramCounter];
+        var opcode = @as(OPCodes, @enumFromInt(memoryValue));
+        switch (opcode) {
+            OPCodes.LDB => {
+                self.load(self.registers.B, self.Registers.ProgramCounter + 1);
+            },
+            else => unreachable,
+        }
     }
 };
 
