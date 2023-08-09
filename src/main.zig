@@ -1,4 +1,5 @@
 const std = @import("std");
+const cpu2 = @import("./libs/cpu");
 
 ///The Registers for the CPU
 const CPURegisters = struct {
@@ -35,9 +36,13 @@ const OPCodes = enum(u8) {
 ///The CPU itself
 const CPU = struct {
     Registers: CPURegisters = undefined,
-    Memory: []u8 = &[0]u8{},
+    Memory: []u8 = undefined,
 
-    pub fn init(self: *CPU) void {
+    pub fn init(self: *CPU) !void {
+        const allocator = std.heap.page_allocator;
+        self.Memory = try allocator.alloc(u8, 8000);
+        defer allocator.free(self.Memory);
+
         self.Registers = CPURegisters{
             .A = 0x01,
             .B = 0x00,
@@ -64,17 +69,17 @@ const CPU = struct {
     }
     test "Test that the tick increments the counter" {
         var cpu = CPU{};
-        cpu.init();
+        try cpu.init();
         cpu.tick();
         try std.testing.expect(cpu.Registers.ProgramCounter == 0x101);
     }
 
-    fn load(self: *CPU, register: u8, address: u8) void {
-        self.Registers[register] = self.Memory[address];
+    fn load(self: *CPU, register: *u8, address: u16) void {
+        register.* = self.Memory[address];
     }
     test "Test that the load opcode function moves whats at the address to the register" {
         var cpu = CPU{};
-        cpu.init();
+        try cpu.init();
         cpu.Memory[cpu.Registers.ProgramCounter] = 0x06;
         cpu.Memory[cpu.Registers.ProgramCounter + 1] = 0xFF;
         cpu.execute();
@@ -83,10 +88,10 @@ const CPU = struct {
 
     fn execute(self: *CPU) void {
         const memoryValue = self.Memory[self.Registers.ProgramCounter];
-        var opcode = @as(OPCodes, @enumFromInt(memoryValue));
-        switch (opcode) {
+        var opcode = memoryValue;
+        switch (@as(OPCodes, @enumFromInt(opcode))) {
             OPCodes.LDB => {
-                self.load(self.registers.B, self.Registers.ProgramCounter + 1);
+                self.load(&self.Registers.B, self.Registers.ProgramCounter + 1);
             },
             else => unreachable,
         }
@@ -95,11 +100,12 @@ const CPU = struct {
 
 test "CPU init" {
     var cpu = CPU{};
-    cpu.init();
+    try cpu.init();
     try std.testing.expect(cpu.Registers.ProgramCounter == 0x100);
+    try std.testing.expect(cpu.Memory.len == 8000);
 }
 
 pub fn main() !void {
     var cpu = CPU{};
-    cpu.init();
+    try cpu.init();
 }
