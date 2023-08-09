@@ -36,12 +36,12 @@ const OPCodes = enum(u8) {
 ///The CPU itself
 const CPU = struct {
     Registers: CPURegisters = undefined,
-    Memory: []u8 = undefined,
+    Memory: [8000]u8 = undefined,
+    MemoryAllocator: std.mem.Allocator = undefined,
 
     pub fn init(self: *CPU) !void {
-        const allocator = std.heap.page_allocator;
-        self.Memory = try allocator.alloc(u8, 8000);
-        defer allocator.free(self.Memory);
+        var fba = std.heap.FixedBufferAllocator.init(&self.Memory);
+        self.MemoryAllocator = fba.allocator();
 
         self.Registers = CPURegisters{
             .A = 0x01,
@@ -80,8 +80,9 @@ const CPU = struct {
     test "Test that the load opcode function moves whats at the address to the register" {
         var cpu = CPU{};
         try cpu.init();
-        cpu.Memory[cpu.Registers.ProgramCounter] = 0x06;
-        cpu.Memory[cpu.Registers.ProgramCounter + 1] = 0xFF;
+        std.debug.print("PC: {d}", .{cpu.Memory[0x0100]});
+        cpu.Memory[0x0100] = 0x06;
+        cpu.Memory[0x0101] = 0xFF;
         cpu.execute();
         try std.testing.expect(cpu.Registers.B == 0xFF);
     }
@@ -101,7 +102,7 @@ const CPU = struct {
 test "CPU init" {
     var cpu = CPU{};
     try cpu.init();
-    try std.testing.expect(cpu.Registers.ProgramCounter == 0x100);
+    try std.testing.expect(cpu.Registers.ProgramCounter == 0x0100);
     try std.testing.expect(cpu.Memory.len == 8000);
 }
 
