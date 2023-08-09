@@ -30,14 +30,19 @@ const OPCodes = enum(u8) {
     LDE = 0x1E,
     LDH = 0x26,
     LDL = 0x2E,
+    _,
 };
 
 ///The CPU itself
 const CPU = struct {
     Registers: CPURegisters = undefined,
-    Memory: []u8 = &[0]u8{},
+    Memory: [8000]u8 = undefined,
+    MemoryAllocator: std.mem.Allocator = undefined,
 
-    pub fn init(self: *CPU) void {
+    pub fn init(self: *CPU) !void {
+        var fba = std.heap.FixedBufferAllocator.init(&self.Memory);
+        self.MemoryAllocator = fba.allocator();
+
         self.Registers = CPURegisters{
             .A = 0x01,
             .B = 0x00,
@@ -59,34 +64,55 @@ const CPU = struct {
         };
     }
 
+    ///Increments the program counter
     pub fn tick(self: *CPU) void {
         self.Registers.ProgramCounter += 1;
     }
     test "Test that the tick increments the counter" {
         var cpu = CPU{};
-        cpu.init();
+        try cpu.init();
         cpu.tick();
         try std.testing.expect(cpu.Registers.ProgramCounter == 0x101);
     }
 
-    fn load(self: *CPU, register: u8, address: u8) void {
-        self.Registers[register] = self.Memory[address];
+    ///Loads values from an address to a register
+    fn load(self: *CPU, register: *u8, address: u16) void {
+        // I dont know if we need to be keeping track of cycles, but this one is 2 machine cycles
+        register.* = self.Memory[address];
+        // todo: write to the combined registers as well
     }
     test "Test that the load opcode function moves whats at the address to the register" {
         var cpu = CPU{};
-        cpu.init();
-        cpu.Memory[cpu.Registers.ProgramCounter] = 0x06;
-        cpu.Memory[cpu.Registers.ProgramCounter + 1] = 0xFF;
+        try cpu.init();
+        cpu.Memory[0x0100] = 0x06;
+        cpu.Memory[0x0101] = 0xFF;
         cpu.execute();
         try std.testing.expect(cpu.Registers.B == 0xFF);
     }
 
+    ///Executes the current opcode
     fn execute(self: *CPU) void {
+        const PC = self.Registers.ProgramCounter;
         const memoryValue = self.Memory[self.Registers.ProgramCounter];
-        var opcode = @as(OPCodes, @enumFromInt(memoryValue));
-        switch (opcode) {
+        var opcode = memoryValue;
+        switch (@as(OPCodes, @enumFromInt(opcode))) {
             OPCodes.LDB => {
-                self.load(self.registers.B, self.Registers.ProgramCounter + 1);
+                self.load(&self.Registers.B, PC + 1);
+            },
+            OPCodes.LDC => {
+                self.load(&self.Registers.C, PC + 1);
+            },
+            OPCodes.LDD => {
+                self.load(&self.Registers.D, PC + 1);
+            },
+            OPCodes.LDE => {
+                self.load(&self.Registers.E, PC + 1);
+            },
+            OPCodes.LDH => {
+                self.load(&self.Registers.H, PC + 1);
+            },
+            OPCodes.LDL => {
+                self.load(&self.Registers.L, PC + 1);
             },
             else => unreachable,
         }
@@ -95,11 +121,12 @@ const CPU = struct {
 
 test "CPU init" {
     var cpu = CPU{};
-    cpu.init();
-    try std.testing.expect(cpu.Registers.ProgramCounter == 0x100);
+    try cpu.init();
+    try std.testing.expect(cpu.Registers.ProgramCounter == 0x0100);
+    try std.testing.expect(cpu.Memory.len == 8000);
 }
 
 pub fn main() !void {
     var cpu = CPU{};
-    cpu.init();
+    try cpu.init();
 }
