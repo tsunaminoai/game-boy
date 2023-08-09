@@ -1,24 +1,59 @@
 const std = @import("std");
 
-pub fn main() !void {
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+const CPURegisters = struct {
+    A: u8,
+    B: u8,
+    C: u8,
+    D: u8,
+    E: u8,
+    H: u8,
+    L: u8,
+    StackPointer: u16,
+    ProgramCounter: u16,
+    AF: u16,
+    BC: u16,
+    DE: u16,
+    HL: u16,
+    ZeroFlag: bool,
+    SubtractionFlag: bool,
+    HalfCarryFlag: bool,
+    CarryFlag: bool,
+};
 
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
+const CPU = struct {
+    Registers: CPURegisters = undefined,
+    Memory: []u8 = &[0]u8{},
 
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
+    pub fn init(self: *CPU) void {
+        self.Registers = CPURegisters{
+            .A = 0x01,
+            .B = 0x00,
+            .C = 0x13,
+            .D = 0x00,
+            .E = 0xD8,
+            .H = 0x01,
+            .L = 0x4D,
+            .StackPointer = 0xFFFE,
+            .ProgramCounter = 0x0100,
+            .AF = 0x01B0,
+            .BC = 0x0013,
+            .DE = 0x00D8,
+            .HL = 0x014D,
+            .ZeroFlag = false,
+            .SubtractionFlag = false,
+            .HalfCarryFlag = false,
+            .CarryFlag = false,
+        };
+    }
+};
 
-    try bw.flush(); // don't forget to flush!
+test "CPU init" {
+    var cpu = CPU{};
+    cpu.init();
+    try std.testing.expect(cpu.Registers.ProgramCounter == 0x100);
 }
 
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
+pub fn main() !void {
+    var cpu = CPU{};
+    cpu.init();
 }
