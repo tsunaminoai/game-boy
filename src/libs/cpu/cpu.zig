@@ -2,7 +2,9 @@ const std = @import("std");
 const Register = @import("types.zig").Register;
 const Flag = @import("types.zig").Flag;
 
+// todo: fix this before merging, its only 10x because of the dump() fn
 const MemorySize = 80000;
+const MemoryOffset: u16 = 0xFF00;
 
 pub const CPU = struct {
     memory: [MemorySize]u8 = [_]u8{0} ** MemorySize,
@@ -13,65 +15,65 @@ pub const CPU = struct {
     const Self = @This();
     const Address = u16;
 
-    pub fn RegisterRead(self: *Self, register: Register) u16 {
+    pub fn ReadRegister(self: *Self, register: Register) u16 {
         return self.registers[@intFromEnum(register)];
     }
 
-    fn internalRegisterWrite(self: *Self, register: Register, value: u16) void {
+    fn internalWriteRegister(self: *Self, register: Register, value: u16) void {
         self.registers[@intFromEnum(register)] = value;
     }
 
-    pub fn RegisterWrite(self: *Self, register: Register, value: u16) void {
-        // std.debug.print("RegisterWrite({},{}: {X})\n", .{ register, @TypeOf(value), value });
-        self.internalRegisterWrite(register, value);
+    pub fn WriteRegister(self: *Self, register: Register, value: u16) void {
+        // std.debug.print("WriteRegister({},{}: {X})\n", .{ register, @TypeOf(value), value });
+        self.internalWriteRegister(register, value);
         switch (register) {
             Register.AF => {
-                self.internalRegisterWrite(Register.A, value >> 8);
-                self.internalRegisterWrite(Register.F, value & 0x0F);
+                self.internalWriteRegister(Register.A, value >> 8);
+                self.internalWriteRegister(Register.F, value & 0x0F);
             },
             Register.BC => {
-                self.internalRegisterWrite(Register.B, value >> 8);
-                self.internalRegisterWrite(Register.C, value & 0x0F);
+                self.internalWriteRegister(Register.B, value >> 8);
+                self.internalWriteRegister(Register.C, value & 0x0F);
             },
             Register.DE => {
-                self.internalRegisterWrite(Register.D, value >> 8);
-                self.internalRegisterWrite(Register.E, value & 0x0F);
+                self.internalWriteRegister(Register.D, value >> 8);
+                self.internalWriteRegister(Register.E, value & 0x0F);
             },
             Register.HL => {
-                self.internalRegisterWrite(Register.H, value >> 8);
-                self.internalRegisterWrite(Register.L, value & 0x0F);
+                self.internalWriteRegister(Register.H, value >> 8);
+                self.internalWriteRegister(Register.L, value & 0x0F);
             },
             Register.A => {
-                const currentValue = self.RegisterRead(Register.AF);
-                self.internalRegisterWrite(Register.AF, (value << 8) | currentValue);
+                const currentValue = self.ReadRegister(Register.AF);
+                self.internalWriteRegister(Register.AF, (value << 8) | currentValue);
             },
             Register.F => {
-                const currentValue = self.RegisterRead(Register.AF);
-                self.internalRegisterWrite(Register.AF, (value & 0x0F) | currentValue);
+                const currentValue = self.ReadRegister(Register.AF);
+                self.internalWriteRegister(Register.AF, (value & 0x0F) | currentValue);
             },
             Register.B => {
-                const currentValue = self.RegisterRead(Register.BC);
-                self.internalRegisterWrite(Register.BC, (value << 8) | currentValue);
+                const currentValue = self.ReadRegister(Register.BC);
+                self.internalWriteRegister(Register.BC, (value << 8) | currentValue);
             },
             Register.C => {
-                const currentValue = self.RegisterRead(Register.BC);
-                self.internalRegisterWrite(Register.BC, (value & 0x0F) | currentValue);
+                const currentValue = self.ReadRegister(Register.BC);
+                self.internalWriteRegister(Register.BC, (value & 0x0F) | currentValue);
             },
             Register.D => {
-                const currentValue = self.RegisterRead(Register.DE);
-                self.internalRegisterWrite(Register.DE, (value << 8) | currentValue);
+                const currentValue = self.ReadRegister(Register.DE);
+                self.internalWriteRegister(Register.DE, (value << 8) | currentValue);
             },
             Register.E => {
-                const currentValue = self.RegisterRead(Register.DE);
-                self.internalRegisterWrite(Register.DE, (value & 0x0F) | currentValue);
+                const currentValue = self.ReadRegister(Register.DE);
+                self.internalWriteRegister(Register.DE, (value & 0x0F) | currentValue);
             },
             Register.H => {
-                const currentValue = self.RegisterRead(Register.HL);
-                self.internalRegisterWrite(Register.HL, (value << 8) | currentValue);
+                const currentValue = self.ReadRegister(Register.HL);
+                self.internalWriteRegister(Register.HL, (value << 8) | currentValue);
             },
             Register.L => {
-                const currentValue = self.RegisterRead(Register.HL);
-                self.internalRegisterWrite(Register.HL, (value & 0x0F) | currentValue);
+                const currentValue = self.ReadRegister(Register.HL);
+                self.internalWriteRegister(Register.HL, (value & 0x0F) | currentValue);
             },
             Register.SP => {},
         }
@@ -89,30 +91,35 @@ pub const CPU = struct {
     }
 
     fn LoadRegister(self: *Self, register: Register) void {
-        self.RegisterWrite(register, self.memory[self.programCounter]);
+        self.WriteRegister(register, self.memory[self.programCounter]);
     }
     fn LoadRegisterFromRegister(self: *Self, source: Register, destination: Register) void {
-        self.RegisterWrite(destination, self.RegisterRead(source));
+        self.WriteRegister(destination, self.ReadRegister(source));
     }
     fn LoadRegisterFromAddressNN(self: *Self, destination: Register) void {
         var address: u16 = @as(u16, self.memory[self.programCounter + 1]);
         address = address << 8;
         address += self.memory[self.programCounter];
 
-        self.RegisterWrite(destination, self.memory[address]);
+        self.WriteRegister(destination, self.memory[address]);
     }
     fn LoadRegisterFromAddressRegister(self: *Self, source: Register, destination: Register) void {
-        self.RegisterWrite(destination, self.memory[self.RegisterRead(source)]);
+        self.WriteRegister(destination, self.memory[self.ReadRegister(source)]);
     }
-
+    fn LoadRegisterFromOffsetN(self: *Self, register: Register) void {
+        self.WriteRegister(register, self.memory[self.memory[self.programCounter] + MemoryOffset]);
+    }
+    fn WriteMemoryFromOffsetN(self: *Self, register: Register) void {
+        self.memory[self.memory[self.programCounter] + MemoryOffset] = @as(u8,@truncate(self.ReadRegister(register)));
+    }
     fn WriteMemoryByteFromRegister(self: *Self, sourceRegister: Register, addressRegister: Register) void {
-        self.memory[self.RegisterRead(addressRegister)] = @as(u8, @truncate(self.RegisterRead(sourceRegister)));
+        self.memory[self.ReadRegister(addressRegister)] = @as(u8, @truncate(self.ReadRegister(sourceRegister)));
     }
     fn WriteMemoryByteFromAddressNN(self: *Self, sourceRegister: Register) void {
         var address: u16 = @as(u16, self.memory[self.programCounter + 1]);
         address = address << 8;
         address += self.memory[self.programCounter];
-        self.memory[address] = @as(u8, @truncate(self.RegisterRead(sourceRegister)));
+        self.memory[address] = @as(u8, @truncate(self.ReadRegister(sourceRegister)));
     }
 
     pub fn Tick(self: *Self) void {
@@ -232,6 +239,8 @@ pub const CPU = struct {
                 self.WriteMemoryByteFromRegister(Register.A, Register.HL);
                 self.RegisterIncrement(Register.HL);
             },
+            0xE0 => { self.WriteMemoryFromOffsetN(Register.A); },
+            0xF0 => { self.LoadRegisterFromOffsetN(Register.A); },
             // zig fmt: on
             else => undefined,
         }
