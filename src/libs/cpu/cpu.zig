@@ -88,6 +88,22 @@ pub const CPU = struct {
             Register.SP, Register.PC => {},
         }
     }
+    test "Test a register can be written to" {
+        var cpu = CPU{};
+        cpu.RegisterWrite(Register.AF, @as(u16, 0x0A0B));
+        try std.testing.expect(cpu.registers[@intFromEnum(Register.AF)] == 0x0A0B);
+    }
+    test "Test that writing to a sub-register writes to the parent and vice versa" {
+        var cpu = CPU{};
+        cpu.RegisterWrite(Register.AF, @as(u16, 0x0A0B));
+        try std.testing.expect(cpu.registers[@intFromEnum(Register.A)] == 0x0A);
+        try std.testing.expect(cpu.registers[@intFromEnum(Register.F)] == 0x0B);
+
+        cpu.RegisterWrite(Register.C, @as(u16, 0x0B));
+        cpu.RegisterWrite(Register.B, @as(u16, 0x0A));
+        try std.testing.expect(cpu.registers[@intFromEnum(Register.BC)] == 0x0A0B);
+    }
+
     pub fn FlagSet(self: *Self, flag: Flag) void {
         self.flags[@intFromEnum(flag)] = true;
     }
@@ -98,28 +114,11 @@ pub const CPU = struct {
     pub fn FlagRead(self: *Self, flag: Flag) bool {
         return self.flags[@intFromEnum(flag)];
     }
+    test "Test that flags can be set and unset" {
+        var cpu = CPU{};
+        cpu.FlagSet(Flag.Zero);
+        try std.testing.expect(cpu.FlagRead(Flag.Zero) == true);
+        cpu.FlagUnSet(Flag.Zero);
+        try std.testing.expect(cpu.FlagRead(Flag.Zero) == false);
+    }
 };
-
-test "Test a register can be written to" {
-    var cpu = CPU{};
-    cpu.RegisterWrite(Register.AF, @as(u16, 0x0A0B));
-    try std.testing.expect(cpu.registers[@intFromEnum(Register.AF)] == 0x0A0B);
-}
-test "Test that writing to a sub-register writes to the parent and vice versa" {
-    var cpu = CPU{};
-    cpu.RegisterWrite(Register.AF, @as(u16, 0x0A0B));
-    try std.testing.expect(cpu.registers[@intFromEnum(Register.A)] == 0x0A);
-    try std.testing.expect(cpu.registers[@intFromEnum(Register.F)] == 0x0B);
-
-    cpu.RegisterWrite(Register.C, @as(u16, 0x0B));
-    cpu.RegisterWrite(Register.B, @as(u16, 0x0A));
-    try std.testing.expect(cpu.registers[@intFromEnum(Register.BC)] == 0x0A0B);
-}
-
-test "Test that flags can be set and unset" {
-    var cpu = CPU{};
-    cpu.FlagSet(Flag.Zero);
-    try std.testing.expect(cpu.FlagRead(Flag.Zero) == true);
-    cpu.FlagUnSet(Flag.Zero);
-    try std.testing.expect(cpu.FlagRead(Flag.Zero) == false);
-}
