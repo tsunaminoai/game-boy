@@ -26,7 +26,7 @@ const Flag = enum(u4) {
     Carry,
 };
 
-const CPU = struct {
+pub const CPU = struct {
     memory: [MemorySize]u8 = [_]u8{0} ** MemorySize,
     registers: [14]u16 = [_]u16{0} ** 14,
 
