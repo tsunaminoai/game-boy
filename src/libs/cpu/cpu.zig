@@ -3,20 +3,11 @@ const std = @import("std");
 const MemorySize = 8000;
 
 const Register = enum(u8) {
-    AF,
-    BC,
-    DE,
-    HL,
-    A,
-    F,
-    B,
-    C,
-    D,
-    E,
-    H,
-    L,
-    PC,
-    SP,
+    // zig fmt: off
+    AF, BC, DE, HL,         //16bit "combined" registers
+    A, F, B, C, D, E, H, L, //"8bit" registers
+    PC, SP                  //16bit special registers
+    // zig fmt: on
 };
 
 const Flag = enum(u4) {
