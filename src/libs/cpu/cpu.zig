@@ -222,6 +222,16 @@ pub const CPU = struct {
                 self.WriteMemoryByteFromRegister(Register.A, Register.HL);
                 self.RegisterDecrement(Register.HL);
             },
+            // LDI A,(HL)
+            0x2A => {
+                self.LoadRegisterFromAddressRegister(Register.HL, Register.A);
+                self.RegisterIncrement(Register.HL);
+            },
+            // LDI (HL),A
+            0x22 => {
+                self.WriteMemoryByteFromRegister(Register.A, Register.HL);
+                self.RegisterIncrement(Register.HL);
+            },
             // zig fmt: on
             else => undefined,
         }

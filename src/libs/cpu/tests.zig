@@ -112,3 +112,28 @@ test "Test LDD (HL),A" {
     try std.testing.expect(cpu.memory[0x0040] == 0x00BE);
     try std.testing.expect(cpu.RegisterRead(Register.HL) == 0x003F);
 }
+
+test "Test LDI A,(HL)" {
+    var cpu = CPU{};
+    cpu.RegisterWrite(Register.A, 0x0);
+    cpu.memory[0xFF7] = 0xBE;
+    cpu.RegisterWrite(Register.HL, 0x0FF7);
+
+    cpu.memory[0] = 0x2A;
+
+    cpu.Tick();
+    try std.testing.expect(cpu.RegisterRead(Register.A) == 0xBE);
+    try std.testing.expect(cpu.RegisterRead(Register.HL) == 0x0FF8);
+}
+test "Test LDI (HL),A" {
+    var cpu = CPU{};
+    cpu.RegisterWrite(Register.A, 0x00BE);
+    cpu.memory[0x0040] = 0x0;
+    cpu.RegisterWrite(Register.HL, 0x0040);
+
+    cpu.memory[0] = 0x22;
+
+    cpu.Tick();
+    try std.testing.expect(cpu.memory[0x0040] == 0x00BE);
+    try std.testing.expect(cpu.RegisterRead(Register.HL) == 0x0041);
+}
