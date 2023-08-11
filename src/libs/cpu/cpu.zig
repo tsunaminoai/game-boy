@@ -6,7 +6,7 @@ const Register = enum(u8) {
     // zig fmt: off
     AF, BC, DE, HL,         //16bit "combined" registers
     A, F, B, C, D, E, H, L, //"8bit" registers
-    PC, SP                  //16bit special registers
+    SP                  //16bit special registers
     // zig fmt: on
 };
 
@@ -21,6 +21,7 @@ pub const CPU = struct {
     memory: [MemorySize]u8 = [_]u8{0} ** MemorySize,
     registers: [14]u16 = [_]u16{0} ** 14,
     flags: [4]bool = [_]bool{false} ** 4,
+    programCounter: u16 = 0,
 
     const Self = @This();
     const Address = u16;
@@ -85,7 +86,7 @@ pub const CPU = struct {
                 const currentValue = self.RegisterRead(Register.HL);
                 self.internalRegisterWrite(Register.HL, (value & 0x0F) | currentValue);
             },
-            Register.SP, Register.PC => {},
+            Register.SP => {},
         }
     }
     test "Test a register can be written to" {
@@ -104,11 +105,11 @@ pub const CPU = struct {
         try std.testing.expect(cpu.registers[@intFromEnum(Register.BC)] == 0x0A0B);
     }
 
-    pub fn FlagSet(self: *Self, flag: Flag) void {
+    fn FlagSet(self: *Self, flag: Flag) void {
         self.flags[@intFromEnum(flag)] = true;
     }
 
-    pub fn FlagUnSet(self: *Self, flag: Flag) void {
+    fn FlagUnSet(self: *Self, flag: Flag) void {
         self.flags[@intFromEnum(flag)] = false;
     }
     pub fn FlagRead(self: *Self, flag: Flag) bool {
@@ -120,5 +121,43 @@ pub const CPU = struct {
         try std.testing.expect(cpu.FlagRead(Flag.Zero) == true);
         cpu.FlagUnSet(Flag.Zero);
         try std.testing.expect(cpu.FlagRead(Flag.Zero) == false);
+    }
+
+    fn LoadRegister(self: *Self, register: Register) void {
+        self.RegisterWrite(register, self.memory[self.programCounter]);
+    }
+    fn LoadRegisterImmediate(self: *Self, register: Register, value: u16) void {
+        self.RegisterWrite(register, value);
+    }
+    fn Tick(self: *Self) void {
+        const opcode = self.memory[self.programCounter];
+        self.programCounter += 1;
+        switch (opcode) {
+            // zig fmt: off
+
+            //LD n,nn
+            0x06 => { self.LoadRegister(Register.B); },
+            0x0E => { self.LoadRegister(Register.C); },
+            0x16 => { self.LoadRegister(Register.D); },
+            0x1E => { self.LoadRegister(Register.E); },
+            0x26 => { self.LoadRegister(Register.H); },
+            0x2E => { self.LoadRegister(Register.L); },
+
+            // zig fmt: on
+            else => undefined,
+        }
+    }
+    test "Test ticking increments PC" {
+        var cpu = CPU{};
+        const pc = cpu.programCounter;
+        cpu.Tick();
+        try std.testing.expect(cpu.programCounter == pc + 1);
+    }
+    test "Test LD B,n" {
+        var cpu = CPU{};
+        cpu.memory[0] = 0x06;
+        cpu.memory[1] = 0xFE;
+        cpu.Tick();
+        try std.testing.expect(cpu.RegisterRead(Register.B) == 0xFE);
     }
 };

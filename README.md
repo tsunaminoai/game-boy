@@ -13,6 +13,7 @@ Clone the repo and run `zig build test` to build and test the emulator.
 - [Zig](https://ziglang.org/)
 - [Gameboy CPU Manual](https://github.com/REALDaGong/Gameboy-emulator/blob/master/doc/GBCPUman.pdf)
 - Inspiration from [Wuelle](https://github.com/Wuelle/RISC-V/)
+- [Gameboy CPU (LR35902) instruction set](https://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html)
 
 ## License
 
