@@ -129,11 +129,15 @@ pub const CPU = struct {
     fn LoadRegisterFromRegister(self: *Self, source: Register, destination: Register) void {
         self.RegisterWrite(destination, self.RegisterRead(source));
     }
+    fn LoadRegisterFromAddressNN(self: *Self, destination: Register) void {
+        var address: u16 = @as(u16, self.memory[self.programCounter + 1]);
+        address = address << 8;
+        address += self.memory[self.programCounter];
+
+        self.RegisterWrite(destination, self.memory[address]);
+    }
     fn LoadRegisterFromAddressRegister(self: *Self, source: Register, destination: Register) void {
         self.RegisterWrite(destination, self.memory[self.RegisterRead(source)]);
-    }
-    fn LoadRegisterImmediate(self: *Self, register: Register, value: u16) void {
-        self.RegisterWrite(register, value);
     }
 
     fn WriteMemoryByteFromRegister(self: *Self, sourceRegister: Register, addressRegister: Register) void {
@@ -218,7 +222,12 @@ pub const CPU = struct {
             0x73 => { self.WriteMemoryByteFromRegister(Register.E, Register.HL); },
             0x74 => { self.WriteMemoryByteFromRegister(Register.H, Register.HL); },
             0x75 => { self.WriteMemoryByteFromRegister(Register.L, Register.HL); },
-            0x36 => { self.WriteMemoryByteFromRegister(Register.L, Register.HL); },
+            0x36 => { self.LoadRegister( Register.HL); },
+
+            0x0A => { self.LoadRegisterFromAddressRegister(Register.BC, Register.A); },
+            0x1A => { self.LoadRegisterFromAddressRegister(Register.DE, Register.A); },
+            0xFA => { self.LoadRegisterFromAddressNN( Register.A); },
+            0x3E => { self.LoadRegister( Register.A ); },
 
             // zig fmt: on
             else => undefined,
@@ -252,6 +261,27 @@ pub const CPU = struct {
         cpu.memory[0xFFE] = 0xBE;
 
         cpu.memory[0] = 0x7E; //LD A,(HL)
+        cpu.Tick();
+        try std.testing.expect(cpu.RegisterRead(Register.A) == 0xBE);
+    }
+    test "Test LD A,n with address register" {
+        var cpu = CPU{};
+        cpu.RegisterWrite(Register.A, 0x0);
+        cpu.RegisterWrite(Register.BC, 0xFF7);
+        cpu.memory[0xFF7] = 0xBE;
+
+        cpu.memory[0] = 0x0A; //LD A,(HL)
+        cpu.Tick();
+        try std.testing.expect(cpu.RegisterRead(Register.A) == 0xBE);
+    }
+    test "Test LD A,n with arbitrary address" {
+        var cpu = CPU{};
+        cpu.RegisterWrite(Register.A, 0x0);
+        cpu.memory[0xFF7] = 0xBE;
+
+        cpu.memory[0] = 0xFA; //LD A,(nn)
+        cpu.memory[1] = 0xF7;
+        cpu.memory[2] = 0x0F;
         cpu.Tick();
         try std.testing.expect(cpu.RegisterRead(Register.A) == 0xBE);
     }
