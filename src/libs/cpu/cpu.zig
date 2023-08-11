@@ -135,6 +135,11 @@ pub const CPU = struct {
     fn LoadRegisterImmediate(self: *Self, register: Register, value: u16) void {
         self.RegisterWrite(register, value);
     }
+
+    fn WriteMemoryByteFromRegister(self: *Self, sourceRegister: Register, addressRegister: Register) void {
+        self.memory[self.RegisterRead(addressRegister)] = @as(u8, @truncate(self.RegisterRead(sourceRegister)));
+    }
+
     fn Tick(self: *Self) void {
         const opcode = self.memory[self.programCounter];
         self.programCounter += 1;
@@ -207,13 +212,13 @@ pub const CPU = struct {
             0x6D => { self.LoadRegisterFromRegister(Register.L, Register.L); },
             0x6E => { self.LoadRegisterFromAddressRegister(Register.HL, Register.L); },
 
-            0x70 => { self.LoadRegisterFromRegister(Register.B, Register.HL); },
-            0x71 => { self.LoadRegisterFromRegister(Register.C, Register.HL); },
-            0x72 => { self.LoadRegisterFromRegister(Register.D, Register.HL); },
-            0x73 => { self.LoadRegisterFromRegister(Register.E, Register.HL); },
-            0x74 => { self.LoadRegisterFromRegister(Register.H, Register.HL); },
-            0x75 => { self.LoadRegisterFromRegister(Register.L, Register.HL); },
-            0x36 => { self.LoadRegisterFromRegister(Register.L, Register.HL); },
+            0x70 => { self.WriteMemoryByteFromRegister(Register.B, Register.HL); },
+            0x71 => { self.WriteMemoryByteFromRegister(Register.C, Register.HL); },
+            0x72 => { self.WriteMemoryByteFromRegister(Register.D, Register.HL); },
+            0x73 => { self.WriteMemoryByteFromRegister(Register.E, Register.HL); },
+            0x74 => { self.WriteMemoryByteFromRegister(Register.H, Register.HL); },
+            0x75 => { self.WriteMemoryByteFromRegister(Register.L, Register.HL); },
+            0x36 => { self.WriteMemoryByteFromRegister(Register.L, Register.HL); },
 
             // zig fmt: on
             else => undefined,
