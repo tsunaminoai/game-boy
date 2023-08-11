@@ -129,6 +129,9 @@ pub const CPU = struct {
         switch (opcode) {
             // zig fmt: off
 
+            //NOPE!
+            0x00 => {},
+
             //LD n,nn
             0x06 => { self.LoadRegister(Register.B); },
             0x0E => { self.LoadRegister(Register.C); },
