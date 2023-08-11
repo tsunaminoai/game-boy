@@ -64,21 +64,24 @@ const CPU = struct {
         };
     }
 
-    ///Increments the program counter
-    pub fn tick(self: *CPU) void {
+    ///Returns the current value of and increments the program counter
+    pub fn tick(self: *CPU) OPCodes {
+        const OpCode = try @as(OPCodes, @enumFromInt(self.Memory[self.Registers.ProgramCounter]));
         self.Registers.ProgramCounter += 1;
+        return OpCode;
     }
-    test "Test that the tick increments the counter" {
+    test "Test that the tick increments the counter and the OpCode is output" {
         var cpu = CPU{};
         try cpu.init();
-        cpu.tick();
+        const OpCode = cpu.tick();
         try std.testing.expect(cpu.Registers.ProgramCounter == 0x101);
+        try std.testing.expect(OpCode == 0x100);
     }
 
     ///Loads values from an address to a register
-    fn load(self: *CPU, register: *u8, address: u16) void {
+    fn load(self: *CPU, register: *u8) void {
         // I dont know if we need to be keeping track of cycles, but this one is 2 machine cycles
-        register.* = self.Memory[address];
+        register.* = self.Memory[self.Registers.ProgramCounter];
         // todo: write to the combined registers as well
     }
     test "Test that the load opcode function moves whats at the address to the register" {
@@ -92,27 +95,25 @@ const CPU = struct {
 
     ///Executes the current opcode
     fn execute(self: *CPU) void {
-        const PC = self.Registers.ProgramCounter;
-        const memoryValue = self.Memory[self.Registers.ProgramCounter];
-        var opcode = memoryValue;
-        switch (@as(OPCodes, @enumFromInt(opcode))) {
+        var opcode = self.tick();
+        switch (opcode) {
             OPCodes.LDB => {
-                self.load(&self.Registers.B, PC + 1);
+                self.load(&self.Registers.B);
             },
             OPCodes.LDC => {
-                self.load(&self.Registers.C, PC + 1);
+                self.load(&self.Registers.C);
             },
             OPCodes.LDD => {
-                self.load(&self.Registers.D, PC + 1);
+                self.load(&self.Registers.D);
             },
             OPCodes.LDE => {
-                self.load(&self.Registers.E, PC + 1);
+                self.load(&self.Registers.E);
             },
             OPCodes.LDH => {
-                self.load(&self.Registers.H, PC + 1);
+                self.load(&self.Registers.H);
             },
             OPCodes.LDL => {
-                self.load(&self.Registers.L, PC + 1);
+                self.load(&self.Registers.L);
             },
             else => unreachable,
         }
