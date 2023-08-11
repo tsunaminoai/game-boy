@@ -246,6 +246,11 @@ pub const CPU = struct {
             0x77 => { self.WriteMemoryByteFromRegister(Register.A, Register.HL); },
             0xEA => { self.WriteMemoryByteFromAddressNN(Register.A); },
 
+            // LDD A,(HL)
+            0x3A => {
+                self.LoadRegisterFromAddressRegister(Register.HL, Register.A);
+                self.RegisterWrite(Register.HL, self.RegisterRead(Register.HL) - 1);
+            },
             // zig fmt: on
             else => undefined,
         }
@@ -312,5 +317,17 @@ pub const CPU = struct {
         cpu.memory[2] = 0x0F;
         cpu.Tick();
         try std.testing.expect(cpu.RegisterRead(Register.A) == 0xBE);
+    }
+    test "Test LDD A, (HL)" {
+        var cpu = CPU{};
+        cpu.RegisterWrite(Register.A, 0x0);
+        cpu.memory[0xFF7] = 0xBE;
+        cpu.RegisterWrite(Register.HL, 0x0FF7);
+
+        cpu.memory[0] = 0x3A; //LD (nn),A
+
+        cpu.Tick();
+        try std.testing.expect(cpu.RegisterRead(Register.A) == 0xBE);
+        try std.testing.expect(cpu.RegisterRead(Register.HL) == 0x0FF6);
     }
 };
