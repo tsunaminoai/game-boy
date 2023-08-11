@@ -1,61 +1,111 @@
 const std = @import("std");
 
-const HalfRegister = struct {
-    value: u8 = 0,
+const MemorySize = 8000;
 
-    pub fn set(self: *HalfRegister, value: u8) !void {
-        self.value = value;
-    }
-
-    pub fn get(self: *HalfRegister) u8 {
-        return self.value;
-    }
-};
-test "Test a half register works as expected" {
-    const testVal1: u8 = 0xFF;
-    const testVal2: u8 = 0xBC;
-    var R1 = HalfRegister{ .value = testVal1 };
-    try std.testing.expect(R1.get() == testVal1);
-    try R1.set(testVal2);
-    try std.testing.expect(R1.get() == testVal2);
-}
-
-const FullRegister = struct {
-    UpperByte: *HalfRegister,
-    LowerByte: *HalfRegister,
-    pub fn get(self: *FullRegister) u16 {
-        return self.UpperByte.get() << 8 + self.LowerByte.get();
-    }
-    pub fn set(self: *FullRegister, value: u16) !void {
-        try self.LowerByte.set(@as(u8, @truncate(value)));
-        try self.UpperByte.set(@as(u8, @truncate(value >> 8)));
-    }
+const Register = enum(u8) {
+    AF,
+    BC,
+    DE,
+    HL,
+    A,
+    F,
+    B,
+    C,
+    D,
+    E,
+    H,
+    L,
+    PC,
+    SP,
 };
 
-fn createRegister() *FullRegister {
-    var h1 = HalfRegister{ .value = 0 };
-    var h2 = HalfRegister{ .value = 0 };
-    var newRegister = FullRegister{
-        .LowerByte = &h1,
-        .UpperByte = &h2,
-    };
-
-    return &newRegister;
-}
-
-test "Test a full register sets its bytes correctly" {
-    const testVal1: u16 = 0x0A0B;
-    _ = testVal1;
-    var R1: *FullRegister = createRegister();
-    try R1.set(0x0A0B);
-}
-
-const Flags = packed struct(u8) {
-    Zero: bool,
-    Subtract: bool,
-    HalfCarry: bool,
-    Carry: bool,
-    _: u4, //unused
+const Flag = enum(u4) {
+    Zero,
+    Subtraction,
+    HalfCarry,
+    Carry,
 };
 
-test "Test flags will work" {}
+const CPU = struct {
+    memory: [MemorySize]u8 = [_]u8{0} ** MemorySize,
+    registers: [14]u16 = [_]u16{0} ** 14,
+
+    const Self = @This();
+    const Address = u16;
+
+    pub fn RegisterRead(self: *Self, register: Register) u16 {
+        return self.registers[@intFromEnum(register)];
+    }
+
+    pub fn RegisterWrite(self: *Self, register: Register, value: anytype) void {
+        std.debug.print("RegisterWrite({},{}: {X})\n", .{ register, @TypeOf(value), value });
+        self.registers[@intFromEnum(register)] = value;
+
+        switch (register) {
+            Register.AF => {
+                self.RegisterWrite(Register.A, value >> 8);
+                self.RegisterWrite(Register.F, value & 0x0F);
+            },
+            Register.BC => {
+                self.RegisterWrite(Register.B, value >> 8);
+                self.RegisterWrite(Register.C, value & 0x0F);
+            },
+            Register.DE => {
+                self.RegisterWrite(Register.D, value >> 8);
+                self.RegisterWrite(Register.E, value & 0x0F);
+            },
+            Register.HL => {
+                self.RegisterWrite(Register.H, value >> 8);
+                self.RegisterWrite(Register.L, value & 0x0F);
+            },
+            Register.A => {
+                const currentValue = self.RegisterRead(Register.AF);
+                self.RegisterWrite(Register.AF, (value << 8) & currentValue);
+            },
+            Register.F => {
+                const currentValue = self.RegisterRead(Register.AF);
+                self.RegisterWrite(Register.AF, (value & 0x0F) & currentValue);
+            },
+            Register.B => {
+                const currentValue = self.RegisterRead(Register.BC);
+                self.RegisterWrite(Register.BC, (value << 8) & currentValue);
+            },
+            Register.C => {
+                const currentValue = self.RegisterRead(Register.BC);
+                self.RegisterWrite(Register.BC, (value & 0x0F) & currentValue);
+            },
+            Register.D => {
+                const currentValue = self.RegisterRead(Register.DE);
+                self.RegisterWrite(Register.DE, (value << 8) & currentValue);
+            },
+            Register.E => {
+                const currentValue = self.RegisterRead(Register.DE);
+                self.RegisterWrite(Register.DE, (value & 0x0F) & currentValue);
+            },
+            Register.H => {
+                const currentValue = self.RegisterRead(Register.HL);
+                self.RegisterWrite(Register.HL, (value << 8) & currentValue);
+            },
+            Register.L => {
+                const currentValue = self.RegisterRead(Register.HL);
+                self.RegisterWrite(Register.HL, (value & 0x0F) & currentValue);
+            },
+            else => unreachable,
+        }
+    }
+};
+
+test "Test a register can be written to" {
+    var cpu = CPU{};
+    cpu.RegisterWrite(Register.AF, @as(u16, 0x0A0B));
+    try std.testing.expect(cpu.registers[@intFromEnum(Register.AF)] == 0x0A0B);
+}
+test "Test that writing to a sub-register writes to the parent and vice versa" {
+    var cpu = CPU{};
+    cpu.RegisterWrite(Register.AF, @as(u16, 0x0A0B));
+    try std.testing.expect(cpu.registers[@intFromEnum(Register.A)] == 0x0A);
+
+    cpu.RegisterWrite(Register.C, @as(u8, 0x0B));
+    cpu.RegisterWrite(Register.B, @as(u8, 0x0A));
+    try std.testing.expect(cpu.registers[@intFromEnum(Register.BC)] == 0x0A0B);
+}
