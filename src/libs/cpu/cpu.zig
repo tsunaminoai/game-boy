@@ -93,7 +93,7 @@ pub const CPU = struct {
                 const currentValue = self.RegisterRead(Register.HL);
                 self.internalRegisterWrite(Register.HL, (value & 0x0F) | currentValue);
             },
-            else => unreachable,
+            Register.SP, Register.PC => {},
         }
     }
 };
