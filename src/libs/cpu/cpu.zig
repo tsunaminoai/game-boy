@@ -20,6 +20,7 @@ const Flag = enum(u4) {
 pub const CPU = struct {
     memory: [MemorySize]u8 = [_]u8{0} ** MemorySize,
     registers: [14]u16 = [_]u16{0} ** 14,
+    flags: [4]bool = [_]bool{false} ** 4,
 
     const Self = @This();
     const Address = u16;
@@ -87,6 +88,16 @@ pub const CPU = struct {
             Register.SP, Register.PC => {},
         }
     }
+    pub fn FlagSet(self: *Self, flag: Flag) void {
+        self.flags[@intFromEnum(flag)] = true;
+    }
+
+    pub fn FlagUnSet(self: *Self, flag: Flag) void {
+        self.flags[@intFromEnum(flag)] = false;
+    }
+    pub fn FlagRead(self: *Self, flag: Flag) bool {
+        return self.flags[@intFromEnum(flag)];
+    }
 };
 
 test "Test a register can be written to" {
@@ -103,4 +114,12 @@ test "Test that writing to a sub-register writes to the parent and vice versa" {
     cpu.RegisterWrite(Register.C, @as(u16, 0x0B));
     cpu.RegisterWrite(Register.B, @as(u16, 0x0A));
     try std.testing.expect(cpu.registers[@intFromEnum(Register.BC)] == 0x0A0B);
+}
+
+test "Test that flags can be set and unset" {
+    var cpu = CPU{};
+    cpu.FlagSet(Flag.Zero);
+    try std.testing.expect(cpu.FlagRead(Flag.Zero) == true);
+    cpu.FlagUnSet(Flag.Zero);
+    try std.testing.expect(cpu.FlagRead(Flag.Zero) == false);
 }

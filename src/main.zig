@@ -5,3 +5,7 @@ pub fn main() !void {
     var cpu = CPU{};
     _ = cpu;
 }
+
+test {
+    std.testing.refAllDecls(@This());
+}
