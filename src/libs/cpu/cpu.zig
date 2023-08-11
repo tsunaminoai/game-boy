@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const MemorySize = 8000;
+const MemorySize = 80000;
 
 const Register = enum(u8) {
     // zig fmt: off
@@ -151,6 +151,7 @@ pub const CPU = struct {
     }
 
     fn Tick(self: *Self) void {
+        self.dump("Start");
         const opcode = self.memory[self.programCounter];
         self.programCounter += 1;
         switch (opcode) {
@@ -249,12 +250,26 @@ pub const CPU = struct {
             // LDD A,(HL)
             0x3A => {
                 self.LoadRegisterFromAddressRegister(Register.HL, Register.A);
-                self.RegisterWrite(Register.HL, self.RegisterRead(Register.HL) - 1);
+                self.RegisterDecrement(Register.HL);
+            },
+            // LDD (HL),A
+            0x32 => {
+                self.WriteMemoryByteFromRegister(Register.A, Register.HL);
+                self.RegisterDecrement(Register.HL);
             },
             // zig fmt: on
             else => undefined,
         }
+
+        self.dump("End");
     }
+    fn RegisterIncrement(self: *Self, register: Register) void {
+        self.registers[@intFromEnum(register)] +%= 0x1;
+    }
+    fn RegisterDecrement(self: *Self, register: Register) void {
+        self.registers[@intFromEnum(register)] -%= 0x1;
+    }
+
     test "Test ticking increments PC" {
         var cpu = CPU{};
         const pc = cpu.programCounter;
@@ -318,16 +333,52 @@ pub const CPU = struct {
         cpu.Tick();
         try std.testing.expect(cpu.RegisterRead(Register.A) == 0xBE);
     }
-    test "Test LDD A, (HL)" {
+    test "Test LDD A,(HL)" {
         var cpu = CPU{};
         cpu.RegisterWrite(Register.A, 0x0);
         cpu.memory[0xFF7] = 0xBE;
         cpu.RegisterWrite(Register.HL, 0x0FF7);
 
-        cpu.memory[0] = 0x3A; //LD (nn),A
+        cpu.memory[0] = 0x3A;
 
         cpu.Tick();
         try std.testing.expect(cpu.RegisterRead(Register.A) == 0xBE);
         try std.testing.expect(cpu.RegisterRead(Register.HL) == 0x0FF6);
+    }
+    test "Test LDD (HL),A" {
+        var cpu = CPU{};
+        cpu.RegisterWrite(Register.A, 0x00BE);
+        cpu.memory[0x0040] = 0x0;
+        cpu.RegisterWrite(Register.HL, 0x0040);
+
+        cpu.memory[0] = 0x32;
+
+        cpu.Tick();
+        try std.testing.expect(cpu.memory[0x0040] == 0x00BE);
+        try std.testing.expect(cpu.RegisterRead(Register.HL) == 0x003F);
+    }
+
+    pub fn dump(self: *Self, msg: []const u8) void {
+        var x: u8 = 0;
+        std.debug.print("====  {s}  ====\n", .{msg});
+        std.debug.print("PC: {X}\n", .{self.programCounter});
+
+        while (x < 13) : (x += 1) {
+            std.debug.print("{}: {X} => ({X})\n", .{
+                @as(Register, @enumFromInt(x)),
+                self.registers[x],
+                self.memory[self.registers[x]],
+            });
+        }
+
+        std.debug.print("\nMemory Block [0..63]:\n", .{});
+        x = 1;
+        while (x < 64) : (x += 1) {
+            if (x % 8 == 0) {
+                std.debug.print("\n", .{});
+            }
+            std.debug.print("{X} ", .{self.memory[x - 1]});
+        }
+        std.debug.print("\n====  {s}  ====\n", .{msg});
     }
 };
