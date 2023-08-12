@@ -212,6 +212,20 @@ test "Test PUSH" {
     cpu.memory[0] = 0xC5;
 
     cpu.Tick();
-    try std.testing.expect(cpu.memory[cpu.ReadRegister(Register.SP)] == 0xBE);
-    try std.testing.expect(cpu.memory[cpu.ReadRegister(Register.SP)+1] == 0xEF);
+    try std.testing.expect(cpu.memory[cpu.ReadRegister(Register.SP) + 2] == 0xBE);
+    try std.testing.expect(cpu.memory[cpu.ReadRegister(Register.SP) + 3] == 0xEF);
+}
+
+test "Test POP" {
+    var cpu = CPU{};
+    cpu.WriteRegister(Register.SP, 0xFFFC);
+    cpu.WriteRegister(Register.BC, 0x0000);
+
+    cpu.memory[0] = 0xC1;
+    cpu.memory[0xFFFC] = 0xBE;
+    cpu.memory[0xFFFD] = 0xEF;
+
+    cpu.Tick();
+    try std.testing.expect(cpu.ReadRegister(Register.BC) == 0xBEEF);
+    try std.testing.expect(cpu.ReadRegister(Register.SP) == 0xFFFE);
 }

@@ -133,13 +133,22 @@ pub const CPU = struct {
         }
     }
     fn StackPush(self: *Self, sourceRegister: Register) void {
-        self.RegisterDecrement(Register.SP);
-        self.RegisterDecrement(Register.SP);
         const SP = self.ReadRegister(Register.SP);
         const LSB = @as(u8, @truncate(self.ReadRegister(sourceRegister) >> 8));
         const MSB = @as(u8, @truncate(self.ReadRegister(sourceRegister)));
         self.memory[SP] = LSB;
         self.memory[SP + 1] = MSB;
+        self.RegisterDecrement(Register.SP);
+        self.RegisterDecrement(Register.SP);
+    }
+    fn StackPop(self: *Self, destinationRegister: Register) void {
+        const SP = self.ReadRegister(Register.SP);
+        var value: u16 = @as(u16, self.memory[SP]) << 8;
+        value += @as(u16, self.memory[SP + 1]);
+
+        self.WriteRegister(destinationRegister, value);
+        self.RegisterIncrement(Register.SP);
+        self.RegisterIncrement(Register.SP);
     }
 
     pub fn Tick(self: *Self) void {
@@ -297,6 +306,11 @@ pub const CPU = struct {
             0xC5 => { self.StackPush(Register.BC); },
             0xD5 => { self.StackPush(Register.DE); },
             0xE5 => { self.StackPush(Register.HL); },
+
+            0xF1 => { self.StackPop(Register.AF); },
+            0xC1 => { self.StackPop(Register.BC); },
+            0xD1 => { self.StackPop(Register.DE); },
+            0xE1 => { self.StackPop(Register.HL); },
 
             // zig fmt: on
             else => undefined,
