@@ -174,3 +174,19 @@ test "Test LD n,nn (16bit)" {
     cpu.Tick();
     try std.testing.expect(cpu.ReadRegister(Register.HL) == 0x0FF7);
 }
+
+test "Test LDHL SP,n" {
+    var cpu = CPU{};
+    cpu.WriteRegister(Register.HL, 0x0000);
+    cpu.WriteRegister(Register.SP, 0xBEEA);
+
+    cpu.memory[0] = 0xF8;
+    cpu.memory[1] = 0x05;
+
+    cpu.Tick();
+    try std.testing.expect(cpu.ReadRegister(Register.SP) == 0xBEEF);
+    try std.testing.expect(cpu.FlagRead(Flag.Zero) == false);
+    try std.testing.expect(cpu.FlagRead(Flag.Subtraction) == false);
+    try std.testing.expect(cpu.FlagRead(Flag.HalfCarry) == false);
+    try std.testing.expect(cpu.FlagRead(Flag.Carry) == false);
+}

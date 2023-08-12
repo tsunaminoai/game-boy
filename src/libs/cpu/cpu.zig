@@ -261,6 +261,21 @@ pub const CPU = struct {
             0x21 => { self.LoadRegisterFromNN(Register.HL); },
             0x31 => { self.LoadRegisterFromNN(Register.SP); },
 
+            0xF9 => { self.LoadRegisterFromRegister(Register.HL, Register.SP); },
+
+            0xF8 => {
+                var SP: u32 = self.ReadRegister(Register.SP);
+                var NL: u32 =  self.memory[self.programCounter];
+                const result = SP + NL;
+                const halfCarry = (SP ^ NL ^ result) & 0x10;
+                const carry = (result & 0x10000);
+                if (halfCarry == 1) self.FlagSet(Flag.HalfCarry) else self.FlagUnSet(Flag.HalfCarry);
+                if (carry == 1) self.FlagSet(Flag.Carry) else self.FlagUnSet(Flag.Carry);
+                self.FlagUnSet(Flag.Zero);
+                self.FlagUnSet(Flag.Subtraction);
+                self.WriteRegister(Register.SP, @as(u16,@truncate(result)));
+
+            },
             // zig fmt: on
             else => undefined,
         }
