@@ -93,6 +93,12 @@ pub const CPU = struct {
     fn LoadRegister(self: *Self, register: Register) void {
         self.WriteRegister(register, self.memory[self.programCounter]);
     }
+    fn LoadRegisterFromNN(self: *Self, register: Register) void {
+        var value: u16 = @as(u16, self.memory[self.programCounter + 1]);
+        value = value << 8;
+        value += self.memory[self.programCounter];
+        self.WriteRegister(register, value);
+    }
     fn LoadRegisterFromRegister(self: *Self, source: Register, destination: Register) void {
         self.WriteRegister(destination, self.ReadRegister(source));
     }
@@ -110,16 +116,39 @@ pub const CPU = struct {
         self.WriteRegister(register, self.memory[self.memory[self.programCounter] + MemoryOffset]);
     }
     fn WriteMemoryFromOffsetN(self: *Self, register: Register) void {
-        self.memory[self.memory[self.programCounter] + MemoryOffset] = @as(u8,@truncate(self.ReadRegister(register)));
+        self.memory[self.memory[self.programCounter] + MemoryOffset] = @as(u8, @truncate(self.ReadRegister(register)));
     }
     fn WriteMemoryByteFromRegister(self: *Self, sourceRegister: Register, addressRegister: Register) void {
         self.memory[self.ReadRegister(addressRegister)] = @as(u8, @truncate(self.ReadRegister(sourceRegister)));
     }
-    fn WriteMemoryByteFromAddressNN(self: *Self, sourceRegister: Register) void {
+    fn WriteMemoryByteFromAddressNN(self: *Self, sourceRegister: Register, double: bool) void {
         var address: u16 = @as(u16, self.memory[self.programCounter + 1]);
         address = address << 8;
         address += self.memory[self.programCounter];
-        self.memory[address] = @as(u8, @truncate(self.ReadRegister(sourceRegister)));
+        if (double) {
+            self.memory[address] = @as(u8, @truncate(self.ReadRegister(sourceRegister) >> 8));
+            self.memory[address + 1] = @as(u8, @truncate(self.ReadRegister(sourceRegister)));
+        } else {
+            self.memory[address] = @as(u8, @truncate(self.ReadRegister(sourceRegister)));
+        }
+    }
+    fn StackPush(self: *Self, sourceRegister: Register) void {
+        const SP = self.ReadRegister(Register.SP);
+        const LSB = @as(u8, @truncate(self.ReadRegister(sourceRegister) >> 8));
+        const MSB = @as(u8, @truncate(self.ReadRegister(sourceRegister)));
+        self.memory[SP] = LSB;
+        self.memory[SP + 1] = MSB;
+        self.RegisterDecrement(Register.SP);
+        self.RegisterDecrement(Register.SP);
+    }
+    fn StackPop(self: *Self, destinationRegister: Register) void {
+        const SP = self.ReadRegister(Register.SP);
+        var value: u16 = @as(u16, self.memory[SP]) << 8;
+        value += @as(u16, self.memory[SP + 1]);
+
+        self.WriteRegister(destinationRegister, value);
+        self.RegisterIncrement(Register.SP);
+        self.RegisterIncrement(Register.SP);
     }
 
     pub fn Tick(self: *Self) void {
@@ -128,6 +157,11 @@ pub const CPU = struct {
         self.programCounter += 1;
         switch (opcode) {
             // zig fmt: off
+
+            //NOPE!
+            0x00 => {},
+
+            //8-bit loads
 
             //LD n,nn
             0x06 => { self.LoadRegister(Register.B); },
@@ -217,7 +251,7 @@ pub const CPU = struct {
             0x02 => { self.WriteMemoryByteFromRegister(Register.A, Register.BC); },
             0x12 => { self.WriteMemoryByteFromRegister(Register.A, Register.DE); },
             0x77 => { self.WriteMemoryByteFromRegister(Register.A, Register.HL); },
-            0xEA => { self.WriteMemoryByteFromAddressNN(Register.A); },
+            0xEA => { self.WriteMemoryByteFromAddressNN(Register.A, false); },
 
             // LDD A,(HL)
             0x3A => {
@@ -239,8 +273,45 @@ pub const CPU = struct {
                 self.WriteMemoryByteFromRegister(Register.A, Register.HL);
                 self.RegisterIncrement(Register.HL);
             },
+
             0xE0 => { self.WriteMemoryFromOffsetN(Register.A); },
             0xF0 => { self.LoadRegisterFromOffsetN(Register.A); },
+
+            //16-bit loads
+
+            0x01 => { self.LoadRegisterFromNN(Register.BC); },
+            0x11 => { self.LoadRegisterFromNN(Register.DE); },
+            0x21 => { self.LoadRegisterFromNN(Register.HL); },
+            0x31 => { self.LoadRegisterFromNN(Register.SP); },
+
+            0xF9 => { self.LoadRegisterFromRegister(Register.HL, Register.SP); },
+
+            0xF8 => {
+                var SP: u32 = self.ReadRegister(Register.SP);
+                var NL: u32 =  self.memory[self.programCounter];
+                const result = SP + NL;
+                const halfCarry: bool = ((SP ^ NL ^ result) & 0x10) == 0x10;
+                const carry: bool = (result & 0x10000) == 0x10000;
+                if (halfCarry) self.FlagSet(Flag.HalfCarry) else self.FlagUnSet(Flag.HalfCarry);
+                if (carry) self.FlagSet(Flag.Carry) else self.FlagUnSet(Flag.Carry);
+                self.FlagUnSet(Flag.Zero);
+                self.FlagUnSet(Flag.Subtraction);
+                self.WriteRegister(Register.SP, @as(u16,@truncate(result)));
+
+            },
+
+            0x08 => { self.WriteMemoryByteFromAddressNN(Register.SP, true); },
+
+            0xF5 => { self.StackPush(Register.AF); },
+            0xC5 => { self.StackPush(Register.BC); },
+            0xD5 => { self.StackPush(Register.DE); },
+            0xE5 => { self.StackPush(Register.HL); },
+
+            0xF1 => { self.StackPop(Register.AF); },
+            0xC1 => { self.StackPop(Register.BC); },
+            0xD1 => { self.StackPop(Register.DE); },
+            0xE1 => { self.StackPop(Register.HL); },
+
             // zig fmt: on
             else => undefined,
         }
@@ -257,7 +328,14 @@ pub const CPU = struct {
     pub fn dump(self: *Self, msg: []const u8) void {
         var x: u8 = 0;
         std.debug.print("====  {s}  ====\n", .{msg});
-        std.debug.print("PC: {X}\n", .{self.programCounter});
+        std.debug.print("PC: {X} SP: {X} Flags: Z{} S{} H{} C{}\n", .{
+            self.programCounter,
+            self.ReadRegister(Register.SP),
+            self.FlagRead(Flag.Zero),
+            self.FlagRead(Flag.Subtraction),
+            self.FlagRead(Flag.HalfCarry),
+            self.FlagRead(Flag.Carry),
+        });
 
         while (x < 13) : (x += 1) {
             std.debug.print("{}: {X} => ({X})\n", .{

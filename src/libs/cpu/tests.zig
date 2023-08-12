@@ -150,15 +150,82 @@ test "Test LDH A,(n)" {
     cpu.Tick();
     try std.testing.expect(cpu.ReadRegister(Register.A) == 0xBE);
 }
-// test "Test LDH (n),A" {
-//     var cpu = CPU{};
-//     cpu.WriteRegister(Register.A, 0x00BE);
-//     cpu.memory[0x0040] = 0x0;
-//     cpu.WriteRegister(Register.HL, 0x0040);
+test "Test LDH (n),A" {
+    var cpu = CPU{};
+    cpu.WriteRegister(Register.A, 0x00BE);
+    cpu.memory[0x0040] = 0x0;
+    cpu.WriteRegister(Register.HL, 0x0040);
 
-//     cpu.memory[0] = 0x22;
+    cpu.memory[0] = 0x22;
 
-//     cpu.Tick();
-//     try std.testing.expect(cpu.memory[0x0040] == 0x00BE);
-//     try std.testing.expect(cpu.ReadRegister(Register.HL) == 0x0041);
-// }
+    cpu.Tick();
+    try std.testing.expect(cpu.memory[0x0040] == 0x00BE);
+    try std.testing.expect(cpu.ReadRegister(Register.HL) == 0x0041);
+}
+
+test "Test LD n,nn (16bit)" {
+    var cpu = CPU{};
+    cpu.WriteRegister(Register.HL, 0x0000);
+
+    cpu.memory[0] = 0x21;
+    cpu.memory[1] = 0xF7;
+    cpu.memory[2] = 0x0F;
+
+    cpu.Tick();
+    try std.testing.expect(cpu.ReadRegister(Register.HL) == 0x0FF7);
+}
+
+test "Test LDHL SP,n" {
+    var cpu = CPU{};
+    cpu.WriteRegister(Register.HL, 0x0000);
+    cpu.WriteRegister(Register.SP, 0xBEEA);
+
+    cpu.memory[0] = 0xF8;
+    cpu.memory[1] = 0x06;
+
+    cpu.Tick();
+    try std.testing.expect(cpu.ReadRegister(Register.SP) == 0xBEF0);
+    try std.testing.expect(cpu.FlagRead(Flag.Zero) == false);
+    try std.testing.expect(cpu.FlagRead(Flag.Subtraction) == false);
+    try std.testing.expect(cpu.FlagRead(Flag.HalfCarry) == true);
+    try std.testing.expect(cpu.FlagRead(Flag.Carry) == false);
+}
+
+test "Test LD (nn),SP" {
+    var cpu = CPU{};
+    cpu.WriteRegister(Register.SP, 0x0100);
+
+    cpu.memory[0] = 0x08;
+    cpu.memory[1] = 0xBE;
+    cpu.memory[2] = 0xEF;
+
+    cpu.Tick();
+    try std.testing.expect(cpu.memory[1] == 0xBE);
+    try std.testing.expect(cpu.memory[2] == 0xEF);
+}
+
+test "Test PUSH" {
+    var cpu = CPU{};
+    cpu.WriteRegister(Register.SP, 0xFFFE);
+    cpu.WriteRegister(Register.BC, 0xBEEF);
+
+    cpu.memory[0] = 0xC5;
+
+    cpu.Tick();
+    try std.testing.expect(cpu.memory[cpu.ReadRegister(Register.SP) + 2] == 0xBE);
+    try std.testing.expect(cpu.memory[cpu.ReadRegister(Register.SP) + 3] == 0xEF);
+}
+
+test "Test POP" {
+    var cpu = CPU{};
+    cpu.WriteRegister(Register.SP, 0xFFFC);
+    cpu.WriteRegister(Register.BC, 0x0000);
+
+    cpu.memory[0] = 0xC1;
+    cpu.memory[0xFFFC] = 0xBE;
+    cpu.memory[0xFFFD] = 0xEF;
+
+    cpu.Tick();
+    try std.testing.expect(cpu.ReadRegister(Register.BC) == 0xBEEF);
+    try std.testing.expect(cpu.ReadRegister(Register.SP) == 0xFFFE);
+}
