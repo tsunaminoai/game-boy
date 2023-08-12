@@ -6,17 +6,18 @@ const Flag = @import("types.zig").Flag;
 test "Test a register can be written to" {
     var cpu = CPU{};
     cpu.WriteRegister(RegisterName.AF, @as(u16, 0x0A0B));
-    try std.testing.expect(cpu.registers[@intFromEnum(RegisterName.AF)] == 0x0A0B);
+    try std.testing.expect(cpu.ReadRegister(RegisterName.AF) == 0x0A0B);
 }
 test "Test that writing to a sub-register writes to the parent and vice versa" {
     var cpu = CPU{};
     cpu.WriteRegister(RegisterName.AF, @as(u16, 0x0A0B));
-    try std.testing.expect(cpu.registers[@intFromEnum(RegisterName.A)] == 0x0A);
-    try std.testing.expect(cpu.registers[@intFromEnum(RegisterName.F)] == 0x0B);
+    try std.testing.expect(cpu.ReadRegister(RegisterName.A) == 0x0A);
+    try std.testing.expect(cpu.ReadRegister(RegisterName.F) == 0x0B);
 
     cpu.WriteRegister(RegisterName.C, @as(u16, 0x0B));
     cpu.WriteRegister(RegisterName.B, @as(u16, 0x0A));
-    try std.testing.expect(cpu.registers[@intFromEnum(RegisterName.BC)] == 0x0A0B);
+    cpu.dump("test!");
+    try std.testing.expect(cpu.ReadRegister(RegisterName.BC) == 0x0A0B);
 }
 test "Test that flags can be set and unset" {
     var cpu = CPU{};

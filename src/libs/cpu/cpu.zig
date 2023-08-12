@@ -6,10 +6,21 @@ const Flag = @import("types.zig").Flag;
 const MemorySize = 80000;
 const MemoryOffset: u16 = 0xFF00;
 
-
+fn getMSB(value: u16) u8 {
+    return @as(u8, @truncate(value >> 8));
+}
+fn getLSB(value: u16) u8 {
+    return @as(u8, @truncate(value & 0x0F));
+}
+fn setMSB(val16: u16, val8: u16) u16 {
+    return (val8 << 8) | (val16);
+}
+fn setLSB(val16: u16, val8: u16) u16 {
+    return (val16) | (val8 & 0x0F);
+}
 
 pub const CPU = struct {
-    memory: [MemorySize]u8 = [_]u8{0} ** MemorySize,
+    memory: [MemorySize]u16 = [_]u16{0} ** MemorySize,
     registers: [14]u16 = [_]u16{0} ** 14,
     flags: [4]bool = [_]bool{false} ** 4,
     programCounter: u16 = 0,
@@ -30,52 +41,52 @@ pub const CPU = struct {
         self.internalWriteRegister(register, value);
         switch (register) {
             RegisterName.AF => {
-                self.internalWriteRegister(RegisterName.A, value >> 8);
-                self.internalWriteRegister(RegisterName.F, value & 0x0F);
+                self.internalWriteRegister(RegisterName.A, getMSB(value));
+                self.internalWriteRegister(RegisterName.F, getLSB(value));
             },
             RegisterName.BC => {
-                self.internalWriteRegister(RegisterName.B, value >> 8);
-                self.internalWriteRegister(RegisterName.C, value & 0x0F);
+                self.internalWriteRegister(RegisterName.B, getMSB(value));
+                self.internalWriteRegister(RegisterName.C, getLSB(value));
             },
             RegisterName.DE => {
-                self.internalWriteRegister(RegisterName.D, value >> 8);
-                self.internalWriteRegister(RegisterName.E, value & 0x0F);
+                self.internalWriteRegister(RegisterName.D, getMSB(value));
+                self.internalWriteRegister(RegisterName.E, getLSB(value));
             },
             RegisterName.HL => {
-                self.internalWriteRegister(RegisterName.H, value >> 8);
-                self.internalWriteRegister(RegisterName.L, value & 0x0F);
+                self.internalWriteRegister(RegisterName.H, getMSB(value));
+                self.internalWriteRegister(RegisterName.L, getLSB(value));
             },
             RegisterName.A => {
                 const currentValue = self.ReadRegister(RegisterName.AF);
-                self.internalWriteRegister(RegisterName.AF, (value << 8) | currentValue);
+                self.internalWriteRegister(RegisterName.AF, setMSB(currentValue, value));
             },
             RegisterName.F => {
                 const currentValue = self.ReadRegister(RegisterName.AF);
-                self.internalWriteRegister(RegisterName.AF, (value & 0x0F) | currentValue);
+                self.internalWriteRegister(RegisterName.AF, setLSB(currentValue, value));
             },
             RegisterName.B => {
                 const currentValue = self.ReadRegister(RegisterName.BC);
-                self.internalWriteRegister(RegisterName.BC, (value << 8) | currentValue);
+                self.internalWriteRegister(RegisterName.BC, setMSB(currentValue, value));
             },
             RegisterName.C => {
                 const currentValue = self.ReadRegister(RegisterName.BC);
-                self.internalWriteRegister(RegisterName.BC, (value & 0x0F) | currentValue);
+                self.internalWriteRegister(RegisterName.BC, setLSB(currentValue, value));
             },
             RegisterName.D => {
                 const currentValue = self.ReadRegister(RegisterName.DE);
-                self.internalWriteRegister(RegisterName.DE, (value << 8) | currentValue);
+                self.internalWriteRegister(RegisterName.DE, setMSB(currentValue, value));
             },
             RegisterName.E => {
                 const currentValue = self.ReadRegister(RegisterName.DE);
-                self.internalWriteRegister(RegisterName.DE, (value & 0x0F) | currentValue);
+                self.internalWriteRegister(RegisterName.DE, setLSB(currentValue, value));
             },
             RegisterName.H => {
                 const currentValue = self.ReadRegister(RegisterName.HL);
-                self.internalWriteRegister(RegisterName.HL, (value << 8) | currentValue);
+                self.internalWriteRegister(RegisterName.HL, setMSB(currentValue, value));
             },
             RegisterName.L => {
                 const currentValue = self.ReadRegister(RegisterName.HL);
-                self.internalWriteRegister(RegisterName.HL, (value & 0x0F) | currentValue);
+                self.internalWriteRegister(RegisterName.HL, setLSB(currentValue, value));
             },
             RegisterName.SP => {},
         }
