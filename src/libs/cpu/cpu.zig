@@ -126,11 +126,20 @@ pub const CPU = struct {
         address = address << 8;
         address += self.memory[self.programCounter];
         if (double) {
-            self.memory[address] =  @as(u8, @truncate(self.ReadRegister(sourceRegister) >> 8));
+            self.memory[address] = @as(u8, @truncate(self.ReadRegister(sourceRegister) >> 8));
             self.memory[address + 1] = @as(u8, @truncate(self.ReadRegister(sourceRegister)));
         } else {
             self.memory[address] = @as(u8, @truncate(self.ReadRegister(sourceRegister)));
         }
+    }
+    fn StackPush(self: *Self, sourceRegister: Register) void {
+        self.RegisterDecrement(Register.SP);
+        self.RegisterDecrement(Register.SP);
+        const SP = self.ReadRegister(Register.SP);
+        const LSB = @as(u8, @truncate(self.ReadRegister(sourceRegister) >> 8));
+        const MSB = @as(u8, @truncate(self.ReadRegister(sourceRegister)));
+        self.memory[SP] = LSB;
+        self.memory[SP + 1] = MSB;
     }
 
     pub fn Tick(self: *Self) void {
@@ -283,6 +292,11 @@ pub const CPU = struct {
             },
 
             0x08 => { self.WriteMemoryByteFromAddressNN(Register.SP, true); },
+
+            0xF5 => { self.StackPush(Register.AF); },
+            0xC5 => { self.StackPush(Register.BC); },
+            0xD5 => { self.StackPush(Register.DE); },
+            0xE5 => { self.StackPush(Register.HL); },
 
             // zig fmt: on
             else => undefined,

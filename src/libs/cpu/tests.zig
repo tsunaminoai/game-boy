@@ -203,3 +203,15 @@ test "Test LD (nn),SP" {
     try std.testing.expect(cpu.memory[1] == 0xBE);
     try std.testing.expect(cpu.memory[2] == 0xEF);
 }
+
+test "Test PUSH" {
+    var cpu = CPU{};
+    cpu.WriteRegister(Register.SP, 0xFFFE);
+    cpu.WriteRegister(Register.BC, 0xBEEF);
+
+    cpu.memory[0] = 0xC5;
+
+    cpu.Tick();
+    try std.testing.expect(cpu.memory[cpu.ReadRegister(Register.SP)] == 0xBE);
+    try std.testing.expect(cpu.memory[cpu.ReadRegister(Register.SP)+1] == 0xEF);
+}
