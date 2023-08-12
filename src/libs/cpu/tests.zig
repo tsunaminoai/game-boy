@@ -150,15 +150,27 @@ test "Test LDH A,(n)" {
     cpu.Tick();
     try std.testing.expect(cpu.ReadRegister(Register.A) == 0xBE);
 }
-// test "Test LDH (n),A" {
-//     var cpu = CPU{};
-//     cpu.WriteRegister(Register.A, 0x00BE);
-//     cpu.memory[0x0040] = 0x0;
-//     cpu.WriteRegister(Register.HL, 0x0040);
+test "Test LDH (n),A" {
+    var cpu = CPU{};
+    cpu.WriteRegister(Register.A, 0x00BE);
+    cpu.memory[0x0040] = 0x0;
+    cpu.WriteRegister(Register.HL, 0x0040);
 
-//     cpu.memory[0] = 0x22;
+    cpu.memory[0] = 0x22;
 
-//     cpu.Tick();
-//     try std.testing.expect(cpu.memory[0x0040] == 0x00BE);
-//     try std.testing.expect(cpu.ReadRegister(Register.HL) == 0x0041);
-// }
+    cpu.Tick();
+    try std.testing.expect(cpu.memory[0x0040] == 0x00BE);
+    try std.testing.expect(cpu.ReadRegister(Register.HL) == 0x0041);
+}
+
+test "Test LD n,nn (16bit)" {
+    var cpu = CPU{};
+    cpu.WriteRegister(Register.HL, 0x0000);
+
+    cpu.memory[0] = 0x21;
+    cpu.memory[1] = 0xF7;
+    cpu.memory[2] = 0x0F;
+
+    cpu.Tick();
+    try std.testing.expect(cpu.ReadRegister(Register.HL) == 0x0FF7);
+}

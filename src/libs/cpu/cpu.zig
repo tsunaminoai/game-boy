@@ -93,6 +93,12 @@ pub const CPU = struct {
     fn LoadRegister(self: *Self, register: Register) void {
         self.WriteRegister(register, self.memory[self.programCounter]);
     }
+    fn LoadRegisterFromNN(self: *Self, register: Register) void {
+        var value: u16 = @as(u16, self.memory[self.programCounter + 1]);
+        value = value << 8;
+        value += self.memory[self.programCounter];
+        self.WriteRegister(register, value);
+    }
     fn LoadRegisterFromRegister(self: *Self, source: Register, destination: Register) void {
         self.WriteRegister(destination, self.ReadRegister(source));
     }
@@ -110,7 +116,7 @@ pub const CPU = struct {
         self.WriteRegister(register, self.memory[self.memory[self.programCounter] + MemoryOffset]);
     }
     fn WriteMemoryFromOffsetN(self: *Self, register: Register) void {
-        self.memory[self.memory[self.programCounter] + MemoryOffset] = @as(u8,@truncate(self.ReadRegister(register)));
+        self.memory[self.memory[self.programCounter] + MemoryOffset] = @as(u8, @truncate(self.ReadRegister(register)));
     }
     fn WriteMemoryByteFromRegister(self: *Self, sourceRegister: Register, addressRegister: Register) void {
         self.memory[self.ReadRegister(addressRegister)] = @as(u8, @truncate(self.ReadRegister(sourceRegister)));
@@ -131,6 +137,8 @@ pub const CPU = struct {
 
             //NOPE!
             0x00 => {},
+
+            //8-bit loads
 
             //LD n,nn
             0x06 => { self.LoadRegister(Register.B); },
@@ -242,8 +250,17 @@ pub const CPU = struct {
                 self.WriteMemoryByteFromRegister(Register.A, Register.HL);
                 self.RegisterIncrement(Register.HL);
             },
+
             0xE0 => { self.WriteMemoryFromOffsetN(Register.A); },
             0xF0 => { self.LoadRegisterFromOffsetN(Register.A); },
+
+            //16-bit loads
+
+            0x01 => { self.LoadRegisterFromNN(Register.BC); },
+            0x11 => { self.LoadRegisterFromNN(Register.DE); },
+            0x21 => { self.LoadRegisterFromNN(Register.HL); },
+            0x31 => { self.LoadRegisterFromNN(Register.SP); },
+
             // zig fmt: on
             else => undefined,
         }
