@@ -121,11 +121,16 @@ pub const CPU = struct {
     fn WriteMemoryByteFromRegister(self: *Self, sourceRegister: Register, addressRegister: Register) void {
         self.memory[self.ReadRegister(addressRegister)] = @as(u8, @truncate(self.ReadRegister(sourceRegister)));
     }
-    fn WriteMemoryByteFromAddressNN(self: *Self, sourceRegister: Register) void {
+    fn WriteMemoryByteFromAddressNN(self: *Self, sourceRegister: Register, double: bool) void {
         var address: u16 = @as(u16, self.memory[self.programCounter + 1]);
         address = address << 8;
         address += self.memory[self.programCounter];
-        self.memory[address] = @as(u8, @truncate(self.ReadRegister(sourceRegister)));
+        if (double) {
+            self.memory[address] =  @as(u8, @truncate(self.ReadRegister(sourceRegister) >> 8));
+            self.memory[address + 1] = @as(u8, @truncate(self.ReadRegister(sourceRegister)));
+        } else {
+            self.memory[address] = @as(u8, @truncate(self.ReadRegister(sourceRegister)));
+        }
     }
 
     pub fn Tick(self: *Self) void {
@@ -228,7 +233,7 @@ pub const CPU = struct {
             0x02 => { self.WriteMemoryByteFromRegister(Register.A, Register.BC); },
             0x12 => { self.WriteMemoryByteFromRegister(Register.A, Register.DE); },
             0x77 => { self.WriteMemoryByteFromRegister(Register.A, Register.HL); },
-            0xEA => { self.WriteMemoryByteFromAddressNN(Register.A); },
+            0xEA => { self.WriteMemoryByteFromAddressNN(Register.A, false); },
 
             // LDD A,(HL)
             0x3A => {
@@ -276,6 +281,9 @@ pub const CPU = struct {
                 self.WriteRegister(Register.SP, @as(u16,@truncate(result)));
 
             },
+
+            0x08 => { self.WriteMemoryByteFromAddressNN(Register.SP, true); },
+
             // zig fmt: on
             else => undefined,
         }

@@ -189,6 +189,17 @@ test "Test LDHL SP,n" {
     try std.testing.expect(cpu.FlagRead(Flag.Subtraction) == false);
     try std.testing.expect(cpu.FlagRead(Flag.HalfCarry) == true);
     try std.testing.expect(cpu.FlagRead(Flag.Carry) == false);
+}
 
+test "Test LD (nn),SP" {
+    var cpu = CPU{};
+    cpu.WriteRegister(Register.SP, 0x0100);
 
+    cpu.memory[0] = 0x08;
+    cpu.memory[1] = 0xBE;
+    cpu.memory[2] = 0xEF;
+
+    cpu.Tick();
+    try std.testing.expect(cpu.memory[1] == 0xBE);
+    try std.testing.expect(cpu.memory[2] == 0xEF);
 }
