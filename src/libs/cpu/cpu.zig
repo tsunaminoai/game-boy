@@ -267,10 +267,10 @@ pub const CPU = struct {
                 var SP: u32 = self.ReadRegister(Register.SP);
                 var NL: u32 =  self.memory[self.programCounter];
                 const result = SP + NL;
-                const halfCarry = (SP ^ NL ^ result) & 0x10;
-                const carry = (result & 0x10000);
-                if (halfCarry == 1) self.FlagSet(Flag.HalfCarry) else self.FlagUnSet(Flag.HalfCarry);
-                if (carry == 1) self.FlagSet(Flag.Carry) else self.FlagUnSet(Flag.Carry);
+                const halfCarry: bool = ((SP ^ NL ^ result) & 0x10) == 0x10;
+                const carry: bool = (result & 0x10000) == 0x10000;
+                if (halfCarry) self.FlagSet(Flag.HalfCarry) else self.FlagUnSet(Flag.HalfCarry);
+                if (carry) self.FlagSet(Flag.Carry) else self.FlagUnSet(Flag.Carry);
                 self.FlagUnSet(Flag.Zero);
                 self.FlagUnSet(Flag.Subtraction);
                 self.WriteRegister(Register.SP, @as(u16,@truncate(result)));
@@ -292,7 +292,14 @@ pub const CPU = struct {
     pub fn dump(self: *Self, msg: []const u8) void {
         var x: u8 = 0;
         std.debug.print("====  {s}  ====\n", .{msg});
-        std.debug.print("PC: {X}\n", .{self.programCounter});
+        std.debug.print("PC: {X} SP: {X} Flags: Z{} S{} H{} C{}\n", .{
+            self.programCounter,
+            self.ReadRegister(Register.SP),
+            self.FlagRead(Flag.Zero),
+            self.FlagRead(Flag.Subtraction),
+            self.FlagRead(Flag.HalfCarry),
+            self.FlagRead(Flag.Carry),
+        });
 
         while (x < 13) : (x += 1) {
             std.debug.print("{}: {X} => ({X})\n", .{

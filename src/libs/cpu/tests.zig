@@ -181,12 +181,14 @@ test "Test LDHL SP,n" {
     cpu.WriteRegister(Register.SP, 0xBEEA);
 
     cpu.memory[0] = 0xF8;
-    cpu.memory[1] = 0x05;
+    cpu.memory[1] = 0x06;
 
     cpu.Tick();
-    try std.testing.expect(cpu.ReadRegister(Register.SP) == 0xBEEF);
+    try std.testing.expect(cpu.ReadRegister(Register.SP) == 0xBEF0);
     try std.testing.expect(cpu.FlagRead(Flag.Zero) == false);
     try std.testing.expect(cpu.FlagRead(Flag.Subtraction) == false);
-    try std.testing.expect(cpu.FlagRead(Flag.HalfCarry) == false);
+    try std.testing.expect(cpu.FlagRead(Flag.HalfCarry) == true);
     try std.testing.expect(cpu.FlagRead(Flag.Carry) == false);
+
+
 }
