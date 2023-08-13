@@ -288,7 +288,6 @@ pub const CPU = struct {
             0xF8 => {
                 // get effective address
                 const eax = self.add16(self.ReadRegister(RegisterName.SP), self.ReadMemory(self.programCounter,1));
-                std.debug.print("EAX: {X}\n", .{eax});
                 self.WriteRegister(RegisterName.HL, self.ReadMemory(eax, 2));
 
             },

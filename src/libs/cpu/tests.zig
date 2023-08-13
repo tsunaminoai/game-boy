@@ -196,13 +196,13 @@ test "Test LDHL SP,n" {
     var cpu = CPU{};
     cpu.WriteRegister(R.HL, 0x0000);
     cpu.WriteRegister(R.SP, 0xFFFC);
-    cpu.WriteMemory(0xFFFC, 0xDEAD, 2);
+    cpu.WriteMemory(0xFFFE, 0xDEAD, 2);
 
     cpu.WriteMemory(0x0, 0xF8, 1);
-    cpu.WriteMemory(0x1, 0x04, 1);
+    cpu.WriteMemory(0x1, 0x02, 1);
 
     cpu.Tick();
-    cpu.dump("");
+
     try expect(cpu.ReadRegister(R.HL) == 0xDEAD);
 
     try expect(cpu.flags.zero == false);
