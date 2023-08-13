@@ -10,13 +10,13 @@ fn getMSB(value: u16) u8 {
     return @as(u8, @truncate(value >> 8));
 }
 fn getLSB(value: u16) u8 {
-    return @as(u8, @truncate(value & 0x0F));
+    return @as(u8, @truncate(value & 0x00FF));
 }
 fn setMSB(val16: u16, val8: u16) u16 {
     return (val8 << 8) | (val16);
 }
 fn setLSB(val16: u16, val8: u16) u16 {
-    return (val16) | (val8 & 0x0F);
+    return (val16) | (val8 & 0x00FF);
 }
 
 pub const CPU = struct {
@@ -36,59 +36,32 @@ pub const CPU = struct {
         self.registers[@intFromEnum(register)] = value;
     }
 
+    // We're going to take advantage of the fact that there are 8 8bit registers and their
+    // doubled up counterparts are esily mappable.
     pub fn WriteRegister(self: *Self, register: RegisterName, value: u16) void {
-        // std.debug.print("WriteRegister({},{}: {X})\n", .{ register, @TypeOf(value), value });
-        self.internalWriteRegister(register, value);
-        switch (register) {
-            RegisterName.AF => {
-                self.internalWriteRegister(RegisterName.A, getMSB(value));
-                self.internalWriteRegister(RegisterName.F, getLSB(value));
+        const index: u16 = @intFromEnum(register);
+
+        self.registers[index] = value;
+
+        switch (index) {
+            // the normal registers
+            0...7 => {
+                // set the register above
+                const combinedIndex = 8 + index / 2 ;
+                const currentValue = self.registers[combinedIndex];
+                self.registers[combinedIndex] = if (index % 2 == 0) setMSB(currentValue, value) else setLSB(currentValue, value);
             },
-            RegisterName.BC => {
-                self.internalWriteRegister(RegisterName.B, getMSB(value));
-                self.internalWriteRegister(RegisterName.C, getLSB(value));
+            // for 16 bit "combined" registers
+            8...11 => {
+                // set the registers 8 and 7 spaces below
+                self.registers[index - 8] = getLSB(value);
+                self.registers[index - 7] = getMSB(value);
             },
-            RegisterName.DE => {
-                self.internalWriteRegister(RegisterName.D, getMSB(value));
-                self.internalWriteRegister(RegisterName.E, getLSB(value));
+            12 => {},
+            else => {
+                std.debug.panic("index: {}, {}, {}\n\n\n", .{ index, register, @intFromEnum(register) });
+                unreachable;
             },
-            RegisterName.HL => {
-                self.internalWriteRegister(RegisterName.H, getMSB(value));
-                self.internalWriteRegister(RegisterName.L, getLSB(value));
-            },
-            RegisterName.A => {
-                const currentValue = self.ReadRegister(RegisterName.AF);
-                self.internalWriteRegister(RegisterName.AF, setMSB(currentValue, value));
-            },
-            RegisterName.F => {
-                const currentValue = self.ReadRegister(RegisterName.AF);
-                self.internalWriteRegister(RegisterName.AF, setLSB(currentValue, value));
-            },
-            RegisterName.B => {
-                const currentValue = self.ReadRegister(RegisterName.BC);
-                self.internalWriteRegister(RegisterName.BC, setMSB(currentValue, value));
-            },
-            RegisterName.C => {
-                const currentValue = self.ReadRegister(RegisterName.BC);
-                self.internalWriteRegister(RegisterName.BC, setLSB(currentValue, value));
-            },
-            RegisterName.D => {
-                const currentValue = self.ReadRegister(RegisterName.DE);
-                self.internalWriteRegister(RegisterName.DE, setMSB(currentValue, value));
-            },
-            RegisterName.E => {
-                const currentValue = self.ReadRegister(RegisterName.DE);
-                self.internalWriteRegister(RegisterName.DE, setLSB(currentValue, value));
-            },
-            RegisterName.H => {
-                const currentValue = self.ReadRegister(RegisterName.HL);
-                self.internalWriteRegister(RegisterName.HL, setMSB(currentValue, value));
-            },
-            RegisterName.L => {
-                const currentValue = self.ReadRegister(RegisterName.HL);
-                self.internalWriteRegister(RegisterName.HL, setLSB(currentValue, value));
-            },
-            RegisterName.SP => {},
         }
     }
 
@@ -165,7 +138,6 @@ pub const CPU = struct {
     }
 
     pub fn Tick(self: *Self) void {
-        self.dump("Start");
         const opcode = self.memory[self.programCounter];
         self.programCounter += 1;
         switch (opcode) {
@@ -328,8 +300,6 @@ pub const CPU = struct {
             // zig fmt: on
             else => undefined,
         }
-
-        self.dump("End");
     }
     pub fn RegisterIncrement(self: *Self, register: RegisterName) void {
         self.registers[@intFromEnum(register)] +%= 0x1;
