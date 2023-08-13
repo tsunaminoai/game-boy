@@ -119,26 +119,24 @@ pub const CPU = struct {
         self.RegisterIncrement(RegisterName.SP);
     }
 
-    pub fn add8(self: *Self, op1: u16, op2: u16) u16 {
-        const result: u32 = op1 + op2;
-        self.flags = .{
-            .zero = ((result & 0xFF) == 0),
-            .subtraction = false,
-            .halfCarry = ((op1 ^ op2 ^ result) & 0x10) == 0x10,
-            .carry = (result & 0x100) == 0x100,
-        };
-        return @as(u16, @truncate(result & 0xFF));
-    }
+    pub fn add(self: *Self, op1: u16, op2: u16, size: u2, useCarry: bool) u16 {
+        var result: u32 = @as(u32, op1) + @as(u32, op2);
 
-    pub fn add16(self: *Self, op1: u16, op2: u16) u16 {
-        const result: u32 = @as(u32,op1) + @as(u32,op2);
+        const halfCarryMask: u32 = if (size == 1) 0x10 else 0x1000;
+        const fullCarryMask: u32 = if (size == 1) 0x100 else 0x10000;
+        const byteMask: u32 = if (size == 1) 0xFF else 0xFFFF;
+
+        if (useCarry) {
+            result += @intFromBool(self.flags.carry);
+        }
+
         self.flags = .{
-            .zero = ((result & 0xFFFF) == 0),
+            .zero = ((result & byteMask) == 0),
             .subtraction = false,
-            .halfCarry = ((op1 ^ op2 ^ result) & 0x1000) == 0x1000,
-            .carry = (result & 0x10000) == 0x10000,
+            .halfCarry = ((op1 ^ op2 ^ result) & halfCarryMask) == halfCarryMask,
+            .carry = (result & fullCarryMask) == fullCarryMask,
         };
-        return @as(u16, @truncate(result & 0xFFFF));
+        return @as(u16, @truncate(result & byteMask));
     }
 
     pub fn Tick(self: *Self) void {
@@ -287,7 +285,7 @@ pub const CPU = struct {
 
             0xF8 => {
                 // get effective address
-                const eax = self.add16(self.ReadRegister(RegisterName.SP), self.ReadMemory(self.programCounter,1));
+                const eax = self.add(self.ReadRegister(RegisterName.SP), self.ReadMemory(self.programCounter,1), 2, false);
                 self.WriteRegister(RegisterName.HL, self.ReadMemory(eax, 2));
 
             },

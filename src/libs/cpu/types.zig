@@ -14,7 +14,7 @@ pub const Flags = packed struct(u8) {
     halfCarry: bool = false,
     carry: bool = false,
     _padding: u4 = 0,
-    
+
     comptime {
         std.debug.assert(@sizeOf(@This()) == @sizeOf(u8));
         std.debug.assert(@bitSizeOf(@This()) == @bitSizeOf(u8));

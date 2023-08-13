@@ -259,7 +259,7 @@ test "Flag bitfield can be written and read to" {
 test "ALU: Add8 with no carry" {
     var cpu = CPU{};
 
-    const result = cpu.add8(0x0002, 0x0003);
+    const result = cpu.add(0x0002, 0x0003, 1, false);
     try expect(result == 0x0005);
     try expect(cpu.flags.zero == false);
     try expect(cpu.flags.subtraction == false);
@@ -270,7 +270,7 @@ test "ALU: Add8 with no carry" {
 test "ALU: Add8 with half carry" {
     var cpu = CPU{};
 
-    const result = cpu.add8(0x000E, 0x0002);
+    const result = cpu.add(0x000E, 0x0002, 1, false);
     try expect(result == 0x0010);
     try expect(cpu.flags.zero == false);
     try expect(cpu.flags.subtraction == false);
@@ -281,7 +281,7 @@ test "ALU: Add8 with half carry" {
 test "ALU: Add8 with Full carry" {
     var cpu = CPU{};
 
-    const result = cpu.add8(0x00FF, 0x0001);
+    const result = cpu.add(0x00FF, 0x0001, 1, false);
     try expect(result == 0x0000);
     try expect(cpu.flags.zero == true);
     try expect(cpu.flags.subtraction == false);
@@ -292,7 +292,7 @@ test "ALU: Add8 with Full carry" {
 test "ALU: Add16 with no carry" {
     var cpu = CPU{};
 
-    const result = cpu.add16(0x00F2, 0x0003);
+    const result = cpu.add(0x00F2, 0x0003, 2, false);
     try expect(result == 0x00F5);
     try expect(cpu.flags.zero == false);
     try expect(cpu.flags.subtraction == false);
@@ -303,7 +303,7 @@ test "ALU: Add16 with no carry" {
 test "ALU: Add16 with half carry" {
     var cpu = CPU{};
 
-    const result = cpu.add16(0xEFF0, 0x0010);
+    const result = cpu.add(0xEFF0, 0x0010, 2, false);
 
     try expect(result == 0xF000);
     try expect(cpu.flags.zero == false);
@@ -315,7 +315,7 @@ test "ALU: Add16 with half carry" {
 test "ALU: Add16 with Full carry" {
     var cpu = CPU{};
 
-    const result = cpu.add16(0xFFFF, 0x0001);
+    const result = cpu.add(0xFFFF, 0x0001, 2, false);
     try expect(result == 0x0000);
     try expect(cpu.flags.zero == true);
     try expect(cpu.flags.subtraction == false);
