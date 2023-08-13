@@ -61,15 +61,6 @@ pub const CPU = struct {
         }
     }
 
-    pub fn WriteMemory(self: *Self, address: u16, value: u16, size: u2) void {
-        // for each byte we're expecting
-        for (0..size) |i| {
-            // write to the address + offset
-            // the value passed in shifted by i bytes and masked to u8
-            self.memory[address + i] = (value >> @intCast(8 * i)) & 0x00FF;
-        }
-    }
-
     pub fn FlagSet(self: *Self, flag: Flag) void {
         self.flags[@intFromEnum(flag)] = true;
     }
@@ -107,6 +98,15 @@ pub const CPU = struct {
         self.WriteRegister(register, self.memory[self.memory[self.programCounter] + MemoryOffset]);
     }
 
+    pub fn WriteMemory(self: *Self, address: u16, value: u16, size: u2) void {
+        // for each byte we're expecting
+        for (0..size) |i| {
+            // write to the address + offset
+            // the value passed in shifted by i bytes and masked to u8
+            self.memory[address + i] = (value >> @intCast(8 * i)) & 0x00FF;
+        }
+    }
+
     pub fn ReadMemory(self: *Self, address: u16, size: u2) u16 {
         switch (size) {
             1 => {
@@ -119,24 +119,22 @@ pub const CPU = struct {
         }
     }
 
+    /// Writes the value of a register to memory address defined in the program counter + $FF00
     fn WriteMemoryFromOffsetN(self: *Self, register: RegisterName) void {
-        // self.WriteMemory(self.ReadMemory);
-        self.memory[self.memory[self.programCounter] + MemoryOffset] = @as(u8, @truncate(self.ReadRegister(register)));
+        self.WriteMemory(self.ReadMemory(self.programCounter, 1) + MemoryOffset, self.ReadRegister(register), 1);
     }
+
+    /// Writes a source register value to a memory address defined in the address register
     fn WriteMemoryByteFromRegister(self: *Self, sourceRegisterName: RegisterName, addressRegisterName: RegisterName) void {
-        self.memory[self.ReadRegister(addressRegisterName)] = @as(u8, @truncate(self.ReadRegister(sourceRegisterName)));
+        self.WriteMemory(self.ReadRegister(addressRegisterName), self.ReadRegister(sourceRegisterName), 1);
     }
-    fn WriteMemoryByteFromAddressNN(self: *Self, sourceRegisterName: RegisterName, double: bool) void {
-        var address: u16 = @as(u16, self.memory[self.programCounter + 1]);
-        address = address << 8;
-        address += self.memory[self.programCounter];
-        if (double) {
-            self.memory[address] = @as(u8, @truncate(self.ReadRegister(sourceRegisterName) >> 8));
-            self.memory[address + 1] = @as(u8, @truncate(self.ReadRegister(sourceRegisterName)));
-        } else {
-            self.memory[address] = @as(u8, @truncate(self.ReadRegister(sourceRegisterName)));
-        }
+
+    /// Writes to a memory address defined as the next <size> immediates
+    fn WriteMemoryByteFromAddressNN(self: *Self, sourceRegisterName: RegisterName, size: u2) void {
+        self.WriteMemory(self.ReadMemory(self.programCounter, size), self.ReadRegister(sourceRegisterName), size);
     }
+
+    
     fn StackPush(self: *Self, sourceRegisterName: RegisterName) void {
         const SP = self.ReadRegister(RegisterName.SP);
         const LSB = @as(u8, @truncate(self.ReadRegister(sourceRegisterName) >> 8));
@@ -255,7 +253,7 @@ pub const CPU = struct {
             0x02 => { self.WriteMemoryByteFromRegister(RegisterName.A, RegisterName.BC); },
             0x12 => { self.WriteMemoryByteFromRegister(RegisterName.A, RegisterName.DE); },
             0x77 => { self.WriteMemoryByteFromRegister(RegisterName.A, RegisterName.HL); },
-            0xEA => { self.WriteMemoryByteFromAddressNN(RegisterName.A, false); },
+            0xEA => { self.WriteMemoryByteFromAddressNN(RegisterName.A, 1); },
 
             // LDD A,(HL)
             0x3A => {
@@ -304,7 +302,7 @@ pub const CPU = struct {
 
             },
 
-            0x08 => { self.WriteMemoryByteFromAddressNN(RegisterName.SP, true); },
+            0x08 => { self.WriteMemoryByteFromAddressNN(RegisterName.SP, 2); },
 
             0xF5 => { self.StackPush(RegisterName.AF); },
             0xC5 => { self.StackPush(RegisterName.BC); },
