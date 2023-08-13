@@ -25,6 +25,17 @@ test "Test that writing to an 8bit register writes to the 16bit meta-register" {
     cpu.WriteRegister(R.B, 0xBE);
     try expect(cpu.ReadRegister(R.BC) == 0xBEEF);
 }
+test "Writing memory for 1 byte" {
+    var cpu = CPU{};
+    cpu.WriteMemory(0x0, 0xBE, 1);
+    try std.testing.expect(cpu.memory[0x0] == 0xBE);
+}
+test "Writing memory for 2 bytes" {
+    var cpu = CPU{};
+    cpu.WriteMemory(0x0, 0xBEEF, 2);
+    try std.testing.expect(cpu.memory[0x0] == 0xEF);
+    try std.testing.expect(cpu.memory[0x1] == 0xBE);
+}
 test "Test that flags can be set and unset" {
     var cpu = CPU{};
     cpu.FlagSet(Flag.Zero);

@@ -47,7 +47,7 @@ pub const CPU = struct {
             // the normal registers
             0...7 => {
                 // set the register above
-                const combinedIndex = 8 + index / 2 ;
+                const combinedIndex = 8 + index / 2;
                 const currentValue = self.registers[combinedIndex];
                 self.registers[combinedIndex] = if (index % 2 == 0) setMSB(currentValue, value) else setLSB(currentValue, value);
             },
@@ -62,6 +62,15 @@ pub const CPU = struct {
                 std.debug.panic("index: {}, {}, {}\n\n\n", .{ index, register, @intFromEnum(register) });
                 unreachable;
             },
+        }
+    }
+
+    pub fn WriteMemory(self: *Self, address: u16, value: u16, size: usize) void {
+        // for each byte we're expecting
+        for (0..size) |i| {
+            // write to the address + offset
+            // the value passed in shifted by i bytes and masked to u8
+            self.memory[address + i] = (value >> @intCast(8 * i)) & 0x00FF;
         }
     }
 
