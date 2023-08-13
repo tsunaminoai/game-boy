@@ -1,6 +1,6 @@
 const std = @import("std");
 const RegisterName = @import("types.zig").RegisterName;
-const Flag = @import("types.zig").Flag;
+const Flags = @import("types.zig").Flags;
 
 // todo: fix this before merging, its only 10x because of the dump() fn
 const MemorySize = 80000;
@@ -22,7 +22,7 @@ fn setLSB(val16: u16, val8: u16) u16 {
 pub const CPU = struct {
     memory: [MemorySize]u16 = [_]u16{0} ** MemorySize,
     registers: [14]u16 = [_]u16{0} ** 14,
-    flags: [4]bool = [_]bool{false} ** 4,
+    flags: Flags = Flags{},
     programCounter: u16 = 0,
 
     const Self = @This();
@@ -59,17 +59,6 @@ pub const CPU = struct {
                 unreachable;
             },
         }
-    }
-
-    pub fn FlagSet(self: *Self, flag: Flag) void {
-        self.flags[@intFromEnum(flag)] = true;
-    }
-
-    pub fn FlagUnSet(self: *Self, flag: Flag) void {
-        self.flags[@intFromEnum(flag)] = false;
-    }
-    pub fn FlagRead(self: *Self, flag: Flag) bool {
-        return self.flags[@intFromEnum(flag)];
     }
 
     fn LoadRegister(self: *Self, register: RegisterName) void {
@@ -128,6 +117,17 @@ pub const CPU = struct {
         self.WriteRegister(destinationRegisterName, self.ReadMemory(self.ReadRegister(RegisterName.SP), 2));
         self.RegisterIncrement(RegisterName.SP);
         self.RegisterIncrement(RegisterName.SP);
+    }
+
+    pub fn add8(self: *Self, op1: u16, op2: u16) u16 {
+        const result: u32 = op1 + op2;
+        self.flags = .{
+            .zero = ((result & 0xFF) == 0),
+            .subtraction = false,
+            .halfCarry = ((op1 ^ op2 ^ result) & 0x10) == 0x10,
+            .carry = (result & 0x100) == 0x100,
+        };
+        return @as(u16,@truncate(result));
     }
 
     pub fn Tick(self: *Self) void {
@@ -274,19 +274,19 @@ pub const CPU = struct {
 
             0xF9 => { self.LoadRegisterFromRegister(RegisterName.HL, RegisterName.SP); },
 
-            0xF8 => {
-                var SP: u32 = self.ReadRegister(RegisterName.SP);
-                var NL: u32 =  self.memory[self.programCounter];
-                const result = SP + NL;
-                const halfCarry: bool = ((SP ^ NL ^ result) & 0x10) == 0x10;
-                const carry: bool = (result & 0x10000) == 0x10000;
-                if (halfCarry) self.FlagSet(Flag.HalfCarry) else self.FlagUnSet(Flag.HalfCarry);
-                if (carry) self.FlagSet(Flag.Carry) else self.FlagUnSet(Flag.Carry);
-                self.FlagUnSet(Flag.Zero);
-                self.FlagUnSet(Flag.Subtraction);
-                self.WriteRegister(RegisterName.SP, @as(u16,@truncate(result)));
+            // 0xF8 => {
+            //     var SP: u32 = self.ReadRegister(RegisterName.SP);
+            //     var NL: u32 =  self.memory[self.programCounter];
+            //     const result = SP + NL;
+            //     const halfCarry: bool = ((SP ^ NL ^ result) & 0x10) == 0x10;
+            //     const carry: bool = (result & 0x10000) == 0x10000;
+            //     if (halfCarry) self.FlagSet(Flag.HalfCarry) else self.FlagUnSet(Flag.HalfCarry);
+            //     if (carry) self.FlagSet(Flag.Carry) else self.FlagUnSet(Flag.Carry);
+            //     self.FlagUnSet(Flag.Zero);
+            //     self.FlagUnSet(Flag.Subtraction);
+            //     self.WriteRegister(RegisterName.SP, @as(u16,@truncate(result)));
 
-            },
+            // },
 
             0x08 => { self.WriteMemoryByteFromAddressNN(RegisterName.SP, 2); },
 
@@ -322,13 +322,10 @@ pub const CPU = struct {
     pub fn dump(self: *Self, msg: []const u8) void {
         var x: u8 = 0;
         std.debug.print("====  {s}  ====\n", .{msg});
-        std.debug.print("PC: {X} SP: {X} Flags: Z{} S{} H{} C{}\n", .{
+        std.debug.print("PC: {X} SP: {X} Flags: {b}\n", .{
             self.programCounter,
             self.ReadRegister(RegisterName.SP),
-            self.FlagRead(Flag.Zero),
-            self.FlagRead(Flag.Subtraction),
-            self.FlagRead(Flag.HalfCarry),
-            self.FlagRead(Flag.Carry),
+            self.flags,
         });
 
         while (x < 13) : (x += 1) {
