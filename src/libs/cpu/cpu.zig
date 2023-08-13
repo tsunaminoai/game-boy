@@ -119,8 +119,13 @@ pub const CPU = struct {
         self.RegisterIncrement(RegisterName.SP);
     }
 
-    pub fn add(self: *Self, op1: u16, op2: u16, size: u2, useCarry: bool) u16 {
-        var result: u32 = @as(u32, op1) + @as(u32, op2);
+    pub fn adder(self: *Self, op1: u16, op2: u16, size: u2, useCarry: bool, subtraction: bool) u16 {
+        var result: u32 = undefined;
+        if (subtraction) {
+            result = 1 + @as(u32, op1) + @as(u32, (~op2));
+        } else {
+            result = @as(u32, op1) + @as(u32, op2);
+        }
 
         const halfCarryMask: u32 = if (size == 1) 0x10 else 0x1000;
         const fullCarryMask: u32 = if (size == 1) 0x100 else 0x10000;
@@ -132,11 +137,17 @@ pub const CPU = struct {
 
         self.flags = .{
             .zero = ((result & byteMask) == 0),
-            .subtraction = false,
+            .subtraction = subtraction,
             .halfCarry = ((op1 ^ op2 ^ result) & halfCarryMask) == halfCarryMask,
             .carry = (result & fullCarryMask) == fullCarryMask,
         };
         return @as(u16, @truncate(result & byteMask));
+    }
+    pub fn add(self: *Self, op1: u16, op2: u16, size: u2, useCarry: bool) u16 {
+        return self.adder(op1, op2, size, useCarry, false);
+    }
+    pub fn subtract(self: *Self, op1: u16, op2: u16, size: u2, useCarry: bool) u16 {
+        return self.adder(op1, op2, size, useCarry, true);
     }
 
     pub fn Tick(self: *Self) void {

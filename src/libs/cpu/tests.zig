@@ -358,6 +358,40 @@ test "ALU: ADC A,n n=#" {
     cpu.WriteMemory(0x1, 0x15, 1);
 
     cpu.Tick();
-    cpu.dump("");
+
     try expect(cpu.ReadRegister(R.A) == 0x1B);
+}
+
+test "ALU: SUB with no carry" {
+    var cpu = CPU{};
+
+    const result = cpu.subtract(0x0010, 0x0005, 1, false);
+    try expect(result == 0x000B);
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == true);
+    try expect(cpu.flags.halfCarry == true);
+    try expect(cpu.flags.carry == false);
+}
+
+test "ALU: SUB with half carry" {
+    var cpu = CPU{};
+
+    const result = cpu.subtract(0x00FF, 0x00CC, 1, false);
+    try expect(result == 0x0033);
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == true);
+    try expect(cpu.flags.halfCarry == false);
+    try expect(cpu.flags.carry == false);
+}
+
+test "ALU: SUB with Full carry" {
+    var cpu = CPU{};
+
+    const result = cpu.subtract(0x0000, 0x0001, 1, false);
+
+    try expect(result == 0xFF);
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == true);
+    try expect(cpu.flags.halfCarry == true);
+    try expect(cpu.flags.carry == true);
 }
