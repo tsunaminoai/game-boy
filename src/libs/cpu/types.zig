@@ -20,3 +20,12 @@ pub const Flags = packed struct(u8) {
         std.debug.assert(@bitSizeOf(@This()) == @bitSizeOf(u8));
     }
 };
+
+pub const MathOperations = enum {
+    add,
+    subtract,
+    logicalAnd,
+    logicalOr,
+    logicalXor,
+    cmp,
+};
