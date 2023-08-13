@@ -302,6 +302,17 @@ pub const CPU = struct {
             0xD1 => { self.StackPop(RegisterName.DE); },
             0xE1 => { self.StackPop(RegisterName.HL); },
 
+            // ADC A,n
+            0x8F => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.A), 1, true)); },
+            0x88 => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.B), 1, true)); },
+            0x89 => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.C), 1, true)); },
+            0x8A => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.D), 1, true)); },
+            0x8B => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.E), 1, true)); },
+            0x8C => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.H), 1, true)); },
+            0x8D => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.L), 1, true)); },
+            0x8E => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadMemory(self.ReadRegister(RegisterName.HL), 1), 1, true)); },
+            0xCE => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadMemory(self.programCounter, 1), 1, true)) ; },
+
             // zig fmt: on
             else => undefined,
         }

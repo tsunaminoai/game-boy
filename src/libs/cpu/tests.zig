@@ -322,3 +322,42 @@ test "ALU: Add16 with Full carry" {
     try expect(cpu.flags.halfCarry == true);
     try expect(cpu.flags.carry == true);
 }
+
+test "ALU: ADC A,n n=B" {
+    var cpu = CPU{};
+    cpu.flags.carry = true;
+    cpu.WriteRegister(R.A, 0x05);
+    cpu.WriteMemory(0x0, 0x88, 1);
+    cpu.WriteRegister(R.B, 0x05);
+
+    cpu.Tick();
+
+    try expect(cpu.ReadRegister(R.A) == 0x0B);
+}
+
+test "ALU: ADC A,n n=(HL)" {
+    var cpu = CPU{};
+    cpu.flags.carry = true;
+    cpu.WriteRegister(R.A, 0x05);
+    cpu.WriteRegister(R.HL, 0xDEAD);
+    cpu.WriteMemory(0xDEAD, 0x06, 1);
+
+    cpu.WriteMemory(0x0, 0x8E, 1);
+
+    cpu.Tick();
+
+    try expect(cpu.ReadRegister(R.A) == 0x0C);
+}
+
+test "ALU: ADC A,n n=#" {
+    var cpu = CPU{};
+    cpu.flags.carry = true;
+    cpu.WriteRegister(R.A, 0x05);
+
+    cpu.WriteMemory(0x0, 0xCE, 1);
+    cpu.WriteMemory(0x1, 0x15, 1);
+
+    cpu.Tick();
+    cpu.dump("");
+    try expect(cpu.ReadRegister(R.A) == 0x1B);
+}
