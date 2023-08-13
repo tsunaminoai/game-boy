@@ -76,23 +76,23 @@ pub const CPU = struct {
         self.WriteRegister(register, self.memory[self.programCounter]);
     }
     fn LoadRegisterFromNN(self: *Self, register: RegisterName) void {
-        var value: u16 = @as(u16, self.memory[self.programCounter + 1]);
-        value = value << 8;
-        value += self.memory[self.programCounter];
-        self.WriteRegister(register, value);
+        self.WriteRegister(register, self.ReadMemory(self.programCounter, 2));
     }
     fn LoadRegisterFromRegister(self: *Self, source: RegisterName, destination: RegisterName) void {
         self.WriteRegister(destination, self.ReadRegister(source));
     }
     fn LoadRegisterFromAddressNN(self: *Self, destination: RegisterName) void {
-        var address: u16 = @as(u16, self.memory[self.programCounter + 1]);
-        address = address << 8;
-        address += self.memory[self.programCounter];
-
-        self.WriteRegister(destination, self.memory[address]);
+        self.WriteRegister(
+            destination,
+            self.ReadMemory(
+                self.ReadMemory(
+                    self.programCounter,
+                    2),
+                1)
+            );
     }
     fn LoadRegisterFromAddressRegister(self: *Self, source: RegisterName, destination: RegisterName) void {
-        self.WriteRegister(destination, self.memory[self.ReadRegister(source)]);
+        self.WriteRegister(destination, self.ReadMemory(self.ReadRegister(source), 1));
     }
     fn LoadRegisterFromOffsetN(self: *Self, register: RegisterName) void {
         self.WriteRegister(register, self.memory[self.memory[self.programCounter] + MemoryOffset]);
@@ -323,7 +323,7 @@ pub const CPU = struct {
     fn dumpStack(self: *Self) void {
         std.debug.print("\n== Stack ==\n", .{});
         var stackPtr = self.ReadRegister(RegisterName.SP);
-        while (stackPtr <= 0xFFFE) : (stackPtr += 1) {
+        while ((stackPtr <= 0xFFFE ) and (stackPtr != 0)) : (stackPtr += 1) {
             std.debug.print("{X}: {X}\n", .{stackPtr, self.ReadMemory(stackPtr, 2)});
         }
         std.debug.print("== \\Stack ==\n", .{});

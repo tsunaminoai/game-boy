@@ -93,11 +93,11 @@ test "Test LD A,n with address register" {
 test "Test LD A,(nn)" {
     var cpu = CPU{};
     cpu.WriteRegister(R.A, 0x0);
-    cpu.WriteMemory(0xFF7, 0xBE, 1);
+    cpu.WriteMemory(0x0FF7, 0xBE, 1);
 
-    cpu.WriteMemory(0, 0xFA, 1); //LD A,(nn)
-    cpu.WriteMemory(1, 0xF7, 1);
-    cpu.WriteMemory(2, 0x0F, 1);
+    cpu.WriteMemory(0x0, 0xFA, 1); //LD A,(nn)
+    cpu.WriteMemory(0x1, 0x0FF7, 2);
+
     cpu.Tick();
     try expect(cpu.ReadRegister(R.A) == 0xBE);
 }
