@@ -1,8 +1,8 @@
-pub const Register = enum(u8) {
+pub const RegisterName = enum(u16) {
     // zig fmt: off
-    AF, BC, DE, HL,         //16bit "combined" registers
-    A, F, B, C, D, E, H, L, //"8bit" registers
-    SP                  //16bit special registers
+    A, F, B, C, D, E, H, L, //"8 bit" registers
+    AF, BC, DE, HL,         //16 bit registers
+    SP,                     //Special 16 bit registers
     // zig fmt: on
 };
 
