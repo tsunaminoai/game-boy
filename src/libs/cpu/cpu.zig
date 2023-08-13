@@ -100,10 +100,11 @@ pub const CPU = struct {
 
     pub fn WriteMemory(self: *Self, address: u16, value: u16, size: u2) void {
         // for each byte we're expecting
-        for (0..size) |i| {
+        var idx: usize = 0;
+        while( idx < size) : (idx += 1 ) {
             // write to the address + offset
             // the value passed in shifted by i bytes and masked to u8
-            self.memory[address + i] = (value >> @intCast(8 * i)) & 0x00FF;
+            self.memory[address + idx] = (value >> @intCast(8 * idx)) & 0x00FF;
         }
     }
 
@@ -134,22 +135,16 @@ pub const CPU = struct {
         self.WriteMemory(self.ReadMemory(self.programCounter, size), self.ReadRegister(sourceRegisterName), size);
     }
 
-    
+    /// Pushes the source register onto the stack
     fn StackPush(self: *Self, sourceRegisterName: RegisterName) void {
-        const SP = self.ReadRegister(RegisterName.SP);
-        const LSB = @as(u8, @truncate(self.ReadRegister(sourceRegisterName) >> 8));
-        const MSB = @as(u8, @truncate(self.ReadRegister(sourceRegisterName)));
-        self.memory[SP] = LSB;
-        self.memory[SP + 1] = MSB;
+        self.WriteMemory(self.ReadRegister(RegisterName.SP), self.ReadRegister(sourceRegisterName), 2);
         self.RegisterDecrement(RegisterName.SP);
         self.RegisterDecrement(RegisterName.SP);
     }
-    fn StackPop(self: *Self, destinationRegisterName: RegisterName) void {
-        const SP = self.ReadRegister(RegisterName.SP);
-        var value: u16 = @as(u16, self.memory[SP]) << 8;
-        value += @as(u16, self.memory[SP + 1]);
 
-        self.WriteRegister(destinationRegisterName, value);
+    /// Pops the stack into the destination register
+    fn StackPop(self: *Self, destinationRegisterName: RegisterName) void {
+        self.WriteRegister(destinationRegisterName, self.ReadMemory(self.ReadRegister(RegisterName.SP), 2));
         self.RegisterIncrement(RegisterName.SP);
         self.RegisterIncrement(RegisterName.SP);
     }
@@ -325,6 +320,14 @@ pub const CPU = struct {
         self.registers[@intFromEnum(register)] -%= 0x1;
     }
 
+    fn dumpStack(self: *Self) void {
+        std.debug.print("\n== Stack ==\n", .{});
+        var stackPtr = self.ReadRegister(RegisterName.SP);
+        while (stackPtr <= 0xFFFE) : (stackPtr += 1) {
+            std.debug.print("{X}: {X}\n", .{stackPtr, self.ReadMemory(stackPtr, 2)});
+        }
+        std.debug.print("== \\Stack ==\n", .{});
+    }
     pub fn dump(self: *Self, msg: []const u8) void {
         var x: u8 = 0;
         std.debug.print("====  {s}  ====\n", .{msg});
@@ -353,6 +356,7 @@ pub const CPU = struct {
             }
             std.debug.print("{X} ", .{self.memory[x - 1]});
         }
+        self.dumpStack();
         std.debug.print("\n====  {s}  ====\n", .{msg});
     }
 };
