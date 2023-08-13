@@ -192,21 +192,24 @@ test "Test LD n,nn (16bit)" {
     try expect(cpu.ReadRegister(R.HL) == 0x0FF7);
 }
 
-// test "Test LDHL SP,n" {
-//     var cpu = CPU{};
-//     cpu.WriteRegister(R.HL, 0x0000);
-//     cpu.WriteRegister(R.SP, 0xBEEA);
+test "Test LDHL SP,n" {
+    var cpu = CPU{};
+    cpu.WriteRegister(R.HL, 0x0000);
+    cpu.WriteRegister(R.SP, 0xFFFC);
+    cpu.WriteMemory(0xFFFC, 0xDEAD, 2);
 
-//     cpu.WriteMemory(0, 0xF8, 1);
-//     cpu.WriteMemory(1, 0x06, 1);
+    cpu.WriteMemory(0x0, 0xF8, 1);
+    cpu.WriteMemory(0x1, 0x04, 1);
 
-//     cpu.Tick();
-//     try expect(cpu.ReadRegister(R.SP) == 0xBEF0);
-//     try expect(cpu.FlagRead(Flag.Zero) == false);
-//     try expect(cpu.FlagRead(Flag.Subtraction) == false);
-//     try expect(cpu.FlagRead(Flag.HalfCarry) == true);
-//     try expect(cpu.FlagRead(Flag.Carry) == false);
-// }
+    cpu.Tick();
+    cpu.dump("");
+    try expect(cpu.ReadRegister(R.HL) == 0xDEAD);
+
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == false);
+    try expect(cpu.flags.carry == false);
+}
 
 test "Test LD (nn),SP" {
     var cpu = CPU{};
@@ -253,7 +256,7 @@ test "Flag bitfield can be written and read to" {
     try expect(cpu.flags.carry == false);
 }
 
-test "ALU: Add with no carry" {
+test "ALU: Add8 with no carry" {
     var cpu = CPU{};
 
     const result = cpu.add8(0x0002, 0x0003);
@@ -264,7 +267,7 @@ test "ALU: Add with no carry" {
     try expect(cpu.flags.carry == false);
 }
 
-test "ALU: Add with half carry" {
+test "ALU: Add8 with half carry" {
     var cpu = CPU{};
 
     const result = cpu.add8(0x000E, 0x0002);
@@ -275,11 +278,45 @@ test "ALU: Add with half carry" {
     try expect(cpu.flags.carry == false);
 }
 
-test "ALU: Add with Full carry" {
+test "ALU: Add8 with Full carry" {
     var cpu = CPU{};
 
     const result = cpu.add8(0x00FF, 0x0001);
-    try expect(result == 0x0100);
+    try expect(result == 0x0000);
+    try expect(cpu.flags.zero == true);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == true);
+    try expect(cpu.flags.carry == true);
+}
+
+test "ALU: Add16 with no carry" {
+    var cpu = CPU{};
+
+    const result = cpu.add16(0x00F2, 0x0003);
+    try expect(result == 0x00F5);
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == false);
+    try expect(cpu.flags.carry == false);
+}
+
+test "ALU: Add16 with half carry" {
+    var cpu = CPU{};
+
+    const result = cpu.add16(0xEFF0, 0x0010);
+
+    try expect(result == 0xF000);
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == true);
+    try expect(cpu.flags.carry == false);
+}
+
+test "ALU: Add16 with Full carry" {
+    var cpu = CPU{};
+
+    const result = cpu.add16(0xFFFF, 0x0001);
+    try expect(result == 0x0000);
     try expect(cpu.flags.zero == true);
     try expect(cpu.flags.subtraction == false);
     try expect(cpu.flags.halfCarry == true);

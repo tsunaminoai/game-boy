@@ -127,7 +127,18 @@ pub const CPU = struct {
             .halfCarry = ((op1 ^ op2 ^ result) & 0x10) == 0x10,
             .carry = (result & 0x100) == 0x100,
         };
-        return @as(u16,@truncate(result));
+        return @as(u16, @truncate(result & 0xFF));
+    }
+
+    pub fn add16(self: *Self, op1: u16, op2: u16) u16 {
+        const result: u32 = @as(u32,op1) + @as(u32,op2);
+        self.flags = .{
+            .zero = ((result & 0xFFFF) == 0),
+            .subtraction = false,
+            .halfCarry = ((op1 ^ op2 ^ result) & 0x1000) == 0x1000,
+            .carry = (result & 0x10000) == 0x10000,
+        };
+        return @as(u16, @truncate(result & 0xFFFF));
     }
 
     pub fn Tick(self: *Self) void {
@@ -274,19 +285,13 @@ pub const CPU = struct {
 
             0xF9 => { self.LoadRegisterFromRegister(RegisterName.HL, RegisterName.SP); },
 
-            // 0xF8 => {
-            //     var SP: u32 = self.ReadRegister(RegisterName.SP);
-            //     var NL: u32 =  self.memory[self.programCounter];
-            //     const result = SP + NL;
-            //     const halfCarry: bool = ((SP ^ NL ^ result) & 0x10) == 0x10;
-            //     const carry: bool = (result & 0x10000) == 0x10000;
-            //     if (halfCarry) self.FlagSet(Flag.HalfCarry) else self.FlagUnSet(Flag.HalfCarry);
-            //     if (carry) self.FlagSet(Flag.Carry) else self.FlagUnSet(Flag.Carry);
-            //     self.FlagUnSet(Flag.Zero);
-            //     self.FlagUnSet(Flag.Subtraction);
-            //     self.WriteRegister(RegisterName.SP, @as(u16,@truncate(result)));
+            0xF8 => {
+                // get effective address
+                const eax = self.add16(self.ReadRegister(RegisterName.SP), self.ReadMemory(self.programCounter,1));
+                std.debug.print("EAX: {X}\n", .{eax});
+                self.WriteRegister(RegisterName.HL, self.ReadMemory(eax, 2));
 
-            // },
+            },
 
             0x08 => { self.WriteMemoryByteFromAddressNN(RegisterName.SP, 2); },
 
@@ -322,7 +327,7 @@ pub const CPU = struct {
     pub fn dump(self: *Self, msg: []const u8) void {
         var x: u8 = 0;
         std.debug.print("====  {s}  ====\n", .{msg});
-        std.debug.print("PC: {X} SP: {X} Flags: {b}\n", .{
+        std.debug.print("PC: {X} SP: {X} Flags: {}\n", .{
             self.programCounter,
             self.ReadRegister(RegisterName.SP),
             self.flags,
