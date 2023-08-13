@@ -313,6 +313,17 @@ pub const CPU = struct {
             0xD1 => { self.StackPop(RegisterName.DE); },
             0xE1 => { self.StackPop(RegisterName.HL); },
 
+            // ADD A,m
+            0x87 => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.A), 1, false)); },
+            0x80 => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.B), 1, false)); },
+            0x81 => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.C), 1, false)); },
+            0x82 => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.D), 1, false)); },
+            0x83 => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.E), 1, false)); },
+            0x84 => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.H), 1, false)); },
+            0x85 => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.L), 1, false)); },
+            0x86 => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadMemory(self.ReadRegister(RegisterName.HL), 1), 1, false)); },
+            0xC6 => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadMemory(self.programCounter, 1), 1, false)) ; },
+
             // ADC A,n
             0x8F => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.A), 1, true)); },
             0x88 => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.B), 1, true)); },
@@ -324,6 +335,27 @@ pub const CPU = struct {
             0x8E => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadMemory(self.ReadRegister(RegisterName.HL), 1), 1, true)); },
             0xCE => { self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), self.ReadMemory(self.programCounter, 1), 1, true)) ; },
 
+            // SUB A,n
+            0x97 => { self.WriteRegister(RegisterName.A, self.subtract(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.A), 1, false)); },
+            0x90 => { self.WriteRegister(RegisterName.A, self.subtract(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.B), 1, false)); },
+            0x91 => { self.WriteRegister(RegisterName.A, self.subtract(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.C), 1, false)); },
+            0x92 => { self.WriteRegister(RegisterName.A, self.subtract(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.D), 1, false)); },
+            0x93 => { self.WriteRegister(RegisterName.A, self.subtract(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.E), 1, false)); },
+            0x94 => { self.WriteRegister(RegisterName.A, self.subtract(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.H), 1, false)); },
+            0x95 => { self.WriteRegister(RegisterName.A, self.subtract(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.L), 1, false)); },
+            0x96 => { self.WriteRegister(RegisterName.A, self.subtract(self.ReadRegister(RegisterName.A), self.ReadMemory(self.ReadRegister(RegisterName.HL), 1), 1, false)); },
+            0xD6 => { self.WriteRegister(RegisterName.A, self.subtract(self.ReadRegister(RegisterName.A), self.ReadMemory(self.programCounter, 1), 1, false)) ; },
+
+            // SBC A.n
+            0x9F => { self.WriteRegister(RegisterName.A, self.subtract(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.A), 1, true)); },
+            0x98 => { self.WriteRegister(RegisterName.A, self.subtract(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.B), 1, true)); },
+            0x99 => { self.WriteRegister(RegisterName.A, self.subtract(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.C), 1, true)); },
+            0x9A => { self.WriteRegister(RegisterName.A, self.subtract(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.D), 1, true)); },
+            0x9B => { self.WriteRegister(RegisterName.A, self.subtract(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.E), 1, true)); },
+            0x9C => { self.WriteRegister(RegisterName.A, self.subtract(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.H), 1, true)); },
+            0x9D => { self.WriteRegister(RegisterName.A, self.subtract(self.ReadRegister(RegisterName.A), self.ReadRegister(RegisterName.L), 1, true)); },
+            0x9E => { self.WriteRegister(RegisterName.A, self.subtract(self.ReadRegister(RegisterName.A), self.ReadMemory(self.ReadRegister(RegisterName.HL), 1), 1, true)); },
+            // undefined 0x?? => { self.WriteRegister(RegisterName.A, self.subtract(self.ReadRegister(RegisterName.A), self.ReadMemory(self.programCounter, 1), 1, false)) ; },
             // zig fmt: on
             else => undefined,
         }
