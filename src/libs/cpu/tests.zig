@@ -395,3 +395,12 @@ test "ALU: SUB with Full carry" {
     try expect(cpu.flags.halfCarry == true);
     try expect(cpu.flags.carry == true);
 }
+
+test "Misc: SWAP" {
+    var cpu = CPU{};
+
+    const result = cpu.swap(0xEB);
+
+    try expect(result == 0xBE);
+
+}

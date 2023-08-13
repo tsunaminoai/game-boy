@@ -149,6 +149,49 @@ pub const CPU = struct {
     pub fn subtract(self: *Self, op1: u16, op2: u16, size: u2, useCarry: bool) u16 {
         return self.adder(op1, op2, size, useCarry, true);
     }
+    pub fn logicalAnd(self: *Self, op1: u16, op2: u16) u16 {
+        const result = op1 & op2;
+        self.flags = .{
+            .zero = result == 0x0,
+            .subtraction = false,
+            .halfCarry = true,
+            .carry = false,
+        };
+        return result;
+    }
+    pub fn logicalOr(self: *Self, op1: u16, op2: u16) u16 {
+        const result = op1 | op2;
+        self.flags = .{
+            .zero = result == 0x0,
+            .subtraction = false,
+            .halfCarry = false,
+            .carry = false,
+        };
+        return result;
+    }
+    pub fn logicalXor(self: *Self, op1: u16, op2: u16) u16 {
+        const result = op1 ^ op2;
+        self.flags = .{
+            .zero = result == 0x0,
+            .subtraction = false,
+            .halfCarry = false,
+            .carry = false,
+        };
+        return result;
+    }
+    pub fn logicalCp(self: *Self, op1: u16, op2: u16) void {
+        _ = self.subtract(op1, op2, 1, false);
+    }
+    pub fn swap(self: *Self, op1: u16) u16 {
+        const result = 0xFF & (op1 << 4) + (op1 >> 4);
+        self.flags = .{
+            .zero = result == 0x0,
+            .subtraction = false,
+            .halfCarry = false,
+            .carry = false,
+        };
+        return result;
+    }
 
     pub fn Tick(self: *Self) void {
         const opcode = self.memory[self.programCounter];
