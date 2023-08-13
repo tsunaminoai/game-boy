@@ -36,6 +36,12 @@ test "Writing memory for 2 bytes" {
     try std.testing.expect(cpu.memory[0x0] == 0xEF);
     try std.testing.expect(cpu.memory[0x1] == 0xBE);
 }
+test "Reading bytes from memory" {
+    var cpu = CPU{};
+    cpu.WriteMemory(0x0, 0xBEEF, 2);
+    try std.testing.expect(cpu.ReadMemory(0x0, 2) == 0xBEEF);
+    try std.testing.expect(cpu.ReadMemory(0x0, 1) == 0x00EF);
+}
 test "Test that flags can be set and unset" {
     var cpu = CPU{};
     cpu.FlagSet(Flag.Zero);

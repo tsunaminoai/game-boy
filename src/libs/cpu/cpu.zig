@@ -32,10 +32,6 @@ pub const CPU = struct {
         return self.registers[@intFromEnum(register)];
     }
 
-    fn internalWriteRegister(self: *Self, register: RegisterName, value: u16) void {
-        self.registers[@intFromEnum(register)] = value;
-    }
-
     // We're going to take advantage of the fact that there are 8 8bit registers and their
     // doubled up counterparts are esily mappable.
     pub fn WriteRegister(self: *Self, register: RegisterName, value: u16) void {
@@ -65,7 +61,7 @@ pub const CPU = struct {
         }
     }
 
-    pub fn WriteMemory(self: *Self, address: u16, value: u16, size: usize) void {
+    pub fn WriteMemory(self: *Self, address: u16, value: u16, size: u2) void {
         // for each byte we're expecting
         for (0..size) |i| {
             // write to the address + offset
@@ -110,7 +106,21 @@ pub const CPU = struct {
     fn LoadRegisterFromOffsetN(self: *Self, register: RegisterName) void {
         self.WriteRegister(register, self.memory[self.memory[self.programCounter] + MemoryOffset]);
     }
+
+    pub fn ReadMemory(self: *Self, address: u16, size: u2) u16 {
+        switch (size) {
+            1 => {
+                return self.memory[address];
+            },
+            2 => {
+                return (self.memory[address + 1] << 8) + self.memory[address];
+            },
+            else => unreachable,
+        }
+    }
+
     fn WriteMemoryFromOffsetN(self: *Self, register: RegisterName) void {
+        // self.WriteMemory(self.ReadMemory);
         self.memory[self.memory[self.programCounter] + MemoryOffset] = @as(u8, @truncate(self.ReadRegister(register)));
     }
     fn WriteMemoryByteFromRegister(self: *Self, sourceRegisterName: RegisterName, addressRegisterName: RegisterName) void {
