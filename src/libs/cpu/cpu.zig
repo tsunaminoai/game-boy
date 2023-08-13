@@ -75,33 +75,19 @@ pub const CPU = struct {
     fn LoadRegister(self: *Self, register: RegisterName) void {
         self.WriteRegister(register, self.memory[self.programCounter]);
     }
-    fn LoadRegisterFromNN(self: *Self, register: RegisterName) void {
-        self.WriteRegister(register, self.ReadMemory(self.programCounter, 2));
-    }
+
     fn LoadRegisterFromRegister(self: *Self, source: RegisterName, destination: RegisterName) void {
         self.WriteRegister(destination, self.ReadRegister(source));
     }
-    fn LoadRegisterFromAddressNN(self: *Self, destination: RegisterName) void {
-        self.WriteRegister(
-            destination,
-            self.ReadMemory(
-                self.ReadMemory(
-                    self.programCounter,
-                    2),
-                1)
-            );
-    }
+
     fn LoadRegisterFromAddressRegister(self: *Self, source: RegisterName, destination: RegisterName) void {
         self.WriteRegister(destination, self.ReadMemory(self.ReadRegister(source), 1));
-    }
-    fn LoadRegisterFromOffsetN(self: *Self, register: RegisterName) void {
-        self.WriteRegister(register, self.memory[self.memory[self.programCounter] + MemoryOffset]);
     }
 
     pub fn WriteMemory(self: *Self, address: u16, value: u16, size: u2) void {
         // for each byte we're expecting
         var idx: usize = 0;
-        while( idx < size) : (idx += 1 ) {
+        while (idx < size) : (idx += 1) {
             // write to the address + offset
             // the value passed in shifted by i bytes and masked to u8
             self.memory[address + idx] = (value >> @intCast(8 * idx)) & 0x00FF;
@@ -118,11 +104,6 @@ pub const CPU = struct {
             },
             else => unreachable,
         }
-    }
-
-    /// Writes the value of a register to memory address defined in the program counter + $FF00
-    fn WriteMemoryFromOffsetN(self: *Self, register: RegisterName) void {
-        self.WriteMemory(self.ReadMemory(self.programCounter, 1) + MemoryOffset, self.ReadRegister(register), 1);
     }
 
     /// Writes a source register value to a memory address defined in the address register
@@ -236,7 +217,7 @@ pub const CPU = struct {
 
             0x0A => { self.LoadRegisterFromAddressRegister(RegisterName.BC, RegisterName.A); },
             0x1A => { self.LoadRegisterFromAddressRegister(RegisterName.DE, RegisterName.A); },
-            0xFA => { self.LoadRegisterFromAddressNN( RegisterName.A); },
+            0xFA => { self.WriteRegister(RegisterName.A, self.ReadMemory(self.ReadMemory(self.programCounter, 2), 1));},
             0x3E => { self.LoadRegister( RegisterName.A ); },
 
             0x47 => { self.LoadRegisterFromRegister( RegisterName.A, RegisterName.B ); },
@@ -271,15 +252,25 @@ pub const CPU = struct {
                 self.RegisterIncrement(RegisterName.HL);
             },
 
-            0xE0 => { self.WriteMemoryFromOffsetN(RegisterName.A); },
-            0xF0 => { self.LoadRegisterFromOffsetN(RegisterName.A); },
+            // Writes the value of a register to memory address defined in the program counter + $FF00
+            0xE0 => {
+                self.WriteMemory(
+                    self.ReadMemory(
+                        self.programCounter,
+                        1)
+                        + MemoryOffset,
+                    self.ReadRegister(RegisterName.A),
+                    1);
+                },
+
+            // Write the value of memory address defined in the program counter + $FF00 to a register
+            0xF0 => { self.WriteRegister(RegisterName.A, self.memory[self.memory[self.programCounter] + MemoryOffset]); },
 
             //16-bit loads
-
-            0x01 => { self.LoadRegisterFromNN(RegisterName.BC); },
-            0x11 => { self.LoadRegisterFromNN(RegisterName.DE); },
-            0x21 => { self.LoadRegisterFromNN(RegisterName.HL); },
-            0x31 => { self.LoadRegisterFromNN(RegisterName.SP); },
+            0x01 => { self.WriteRegister(RegisterName.BC, self.ReadMemory(self.programCounter, 2)); },
+            0x11 => { self.WriteRegister(RegisterName.DE, self.ReadMemory(self.programCounter, 2)); },
+            0x21 => { self.WriteRegister(RegisterName.HL, self.ReadMemory(self.programCounter, 2)); },
+            0x31 => { self.WriteRegister(RegisterName.SP, self.ReadMemory(self.programCounter, 2)); },
 
             0xF9 => { self.LoadRegisterFromRegister(RegisterName.HL, RegisterName.SP); },
 
@@ -323,8 +314,8 @@ pub const CPU = struct {
     fn dumpStack(self: *Self) void {
         std.debug.print("\n== Stack ==\n", .{});
         var stackPtr = self.ReadRegister(RegisterName.SP);
-        while ((stackPtr <= 0xFFFE ) and (stackPtr != 0)) : (stackPtr += 1) {
-            std.debug.print("{X}: {X}\n", .{stackPtr, self.ReadMemory(stackPtr, 2)});
+        while ((stackPtr <= 0xFFFE) and (stackPtr != 0)) : (stackPtr += 1) {
+            std.debug.print("{X}: {X}\n", .{ stackPtr, self.ReadMemory(stackPtr, 2) });
         }
         std.debug.print("== \\Stack ==\n", .{});
     }
