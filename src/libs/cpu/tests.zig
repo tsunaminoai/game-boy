@@ -396,11 +396,74 @@ test "ALU: SUB with Full carry" {
     try expect(cpu.flags.carry == true);
 }
 
+test "ALU: AND" {
+    var cpu = CPU{};
+
+    try expect(cpu.logicalAnd(0xF0, 0x0F) == 0x0);
+    try expect(cpu.flags.zero == true);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == true);
+    try expect(cpu.flags.carry == false);
+
+    try expect(cpu.logicalAnd(0x52, 0x75) == 0x50);
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == true);
+    try expect(cpu.flags.carry == false);
+}
+
+test "ALU: OR" {
+    var cpu = CPU{};
+
+    try expect(cpu.logicalOr(0x0, 0x0) == 0x0);
+    try expect(cpu.flags.zero == true);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == false);
+    try expect(cpu.flags.carry == false);
+
+    try expect(cpu.logicalOr(0xF0, 0x0F) == 0xFF);
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == false);
+    try expect(cpu.flags.carry == false);
+}
+
+test "ALU: XOR" {
+    var cpu = CPU{};
+
+    try expect(cpu.logicalXor(0xFF, 0xFF) == 0x0);
+    try expect(cpu.flags.zero == true);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == false);
+    try expect(cpu.flags.carry == false);
+
+    try expect(cpu.logicalXor(0x66, 0xAA) == 0xCC);
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == false);
+    try expect(cpu.flags.carry == false);
+}
+
+test "ALU: CP" {
+    var cpu = CPU{};
+
+    cpu.cmp(0xFF, 0xFF);
+    try expect(cpu.flags.zero == true);
+    try expect(cpu.flags.subtraction == true);
+    try expect(cpu.flags.halfCarry == false);
+    try expect(cpu.flags.carry == false);
+
+    cpu.cmp(0x66, 0xAA);
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == true);
+    try expect(cpu.flags.halfCarry == true);
+    try expect(cpu.flags.carry == true);
+}
+
 test "Misc: SWAP" {
     var cpu = CPU{};
 
     const result = cpu.swap(0xEB);
 
     try expect(result == 0xBE);
-
 }
