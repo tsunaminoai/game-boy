@@ -21,6 +21,7 @@ test "Test that writing to an 16 bit register writes to the 8bit meta-registers"
 test "Test that writing to an 8bit register writes to the 16bit meta-register" {
     var cpu = CPU{};
 
+
     cpu.WriteRegister(R.C, 0xEF);
     cpu.WriteRegister(R.B, 0xBE);
     try expect(cpu.ReadRegister(R.BC) == 0xBEEF);
@@ -209,6 +210,7 @@ test "Test LDHL SP,n" {
     try expect(cpu.flags.subtraction == false);
     try expect(cpu.flags.halfCarry == false);
     try expect(cpu.flags.carry == false);
+
 }
 
 test "Test LD (nn),SP" {
@@ -466,4 +468,5 @@ test "Misc: SWAP" {
     const result = cpu.swap(0xEB);
 
     try expect(result == 0xBE);
+
 }

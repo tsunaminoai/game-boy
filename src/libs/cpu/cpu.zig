@@ -3,6 +3,7 @@ const RegisterName = @import("types.zig").RegisterName;
 const Flags = @import("types.zig").Flags;
 const MOps = @import("types.zig").MathOperations;
 
+
 // todo: fix this before merging, its only 10x because of the dump() fn
 const MemorySize = 80000;
 const MemoryOffset: u16 = 0xFF00;
@@ -364,7 +365,6 @@ pub const CPU = struct {
                 // get effective address
                 const eax = self.add(self.ReadRegister(RegisterName.SP), self.ReadMemory(self.programCounter,1), 2, false);
                 self.WriteRegister(RegisterName.HL, self.ReadMemory(eax, 2));
-
             },
 
             0x08 => { self.WriteMemoryByteFromAddressNN(RegisterName.SP, 2); },
@@ -505,6 +505,7 @@ pub const CPU = struct {
            0xE8 => {
                 self.WriteRegister(RegisterName.SP, self.add( self.ReadRegister(RegisterName.SP), self.ReadMemory(self.programCounter, 1),  1, false ));
             },
+
 
             // zig fmt: on
             else => undefined,
