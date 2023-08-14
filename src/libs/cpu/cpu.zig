@@ -506,10 +506,33 @@ pub const CPU = struct {
                 self.WriteRegister(RegisterName.SP, self.add( self.ReadRegister(RegisterName.SP), self.ReadMemory(self.programCounter, 1),  1, false ));
             },
 
+            // JP
+            0xC3 => { self.jump(self.programCounter); },
+            0xC2 => { if( self.flags.zero == false) { self.jump(self.programCounter); } },
+            0xCA => { if( self.flags.zero == true) { self.jump(self.programCounter); } },
+            0xD2 => { if( self.flags.carry == false) { self.jump(self.programCounter); } },
+            0xDA => { if( self.flags.carry == true) { self.jump(self.programCounter); } },
+            0xE9 => { self.jump(self.ReadRegister(RegisterName.HL)); },
+
+            // JR
+            0x18 => {
+
+            },
+
 
             // zig fmt: on
             else => undefined,
         }
+    }
+    pub fn jumpR(self: *Self, address: u16) void {
+        _ = address;
+        const HL = self.ReadRegister(RegisterName.HL);
+        const n = self.ReadMemory(self.programCounter, 1);
+        self.WriteRegister(RegisterName.HL, add(HL, n, 2, false));
+        self.jump(self.ReadRegister(RegisterName.HL));
+    }
+    pub fn jump(self: *Self, address: u16) void {
+        self.programCounter = self.ReadMemory( address, 2);
     }
     pub fn RegisterIncrement(self: *Self, register: RegisterName) void {
         self.registers[@intFromEnum(register)] +%= 0x1;
