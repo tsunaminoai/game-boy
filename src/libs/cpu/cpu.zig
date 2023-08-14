@@ -1,6 +1,8 @@
 const std = @import("std");
 const RegisterName = @import("types.zig").RegisterName;
-const Flag = @import("types.zig").Flag;
+const Flags = @import("types.zig").Flags;
+const MOps = @import("types.zig").MathOperations;
+
 
 // todo: fix this before merging, its only 10x because of the dump() fn
 const MemorySize = 80000;
@@ -22,7 +24,7 @@ fn setLSB(val16: u16, val8: u16) u16 {
 pub const CPU = struct {
     memory: [MemorySize]u16 = [_]u16{0} ** MemorySize,
     registers: [14]u16 = [_]u16{0} ** 14,
-    flags: [4]bool = [_]bool{false} ** 4,
+    flags: Flags = Flags{},
     programCounter: u16 = 0,
 
     const Self = @This();
@@ -59,17 +61,6 @@ pub const CPU = struct {
                 unreachable;
             },
         }
-    }
-
-    pub fn FlagSet(self: *Self, flag: Flag) void {
-        self.flags[@intFromEnum(flag)] = true;
-    }
-
-    pub fn FlagUnSet(self: *Self, flag: Flag) void {
-        self.flags[@intFromEnum(flag)] = false;
-    }
-    pub fn FlagRead(self: *Self, flag: Flag) bool {
-        return self.flags[@intFromEnum(flag)];
     }
 
     fn LoadRegister(self: *Self, register: RegisterName) void {
@@ -128,6 +119,102 @@ pub const CPU = struct {
         self.WriteRegister(destinationRegisterName, self.ReadMemory(self.ReadRegister(RegisterName.SP), 2));
         self.RegisterIncrement(RegisterName.SP);
         self.RegisterIncrement(RegisterName.SP);
+    }
+
+    pub fn adder(self: *Self, op1: u16, op2: u16, size: u2, useCarry: bool, subtraction: bool) u16 {
+        var result: u32 = undefined;
+        if (subtraction) {
+            result = 1 + @as(u32, op1) + @as(u32, (~op2));
+        } else {
+            result = @as(u32, op1) + @as(u32, op2);
+        }
+
+        const halfCarryMask: u32 = if (size == 1) 0x10 else 0x1000;
+        const fullCarryMask: u32 = if (size == 1) 0x100 else 0x10000;
+        const byteMask: u32 = if (size == 1) 0xFF else 0xFFFF;
+
+        if (useCarry) {
+            result += @intFromBool(self.flags.carry);
+        }
+
+        self.flags = .{
+            .zero = ((result & byteMask) == 0),
+            .subtraction = subtraction,
+            .halfCarry = ((op1 ^ op2 ^ result) & halfCarryMask) == halfCarryMask,
+            .carry = (result & fullCarryMask) == fullCarryMask,
+        };
+        return @as(u16, @truncate(result & byteMask));
+    }
+    pub fn add(self: *Self, op1: u16, op2: u16, size: u2, useCarry: bool) u16 {
+        return self.adder(op1, op2, size, useCarry, false);
+    }
+    pub fn subtract(self: *Self, op1: u16, op2: u16, size: u2, useCarry: bool) u16 {
+        return self.adder(op1, op2, size, useCarry, true);
+    }
+    pub fn logicalAnd(self: *Self, op1: u16, op2: u16) u16 {
+        const result = op1 & op2;
+        self.flags = .{
+            .zero = result == 0x0,
+            .subtraction = false,
+            .halfCarry = true,
+            .carry = false,
+        };
+        return result;
+    }
+    pub fn logicalOr(self: *Self, op1: u16, op2: u16) u16 {
+        const result = op1 | op2;
+        self.flags = .{
+            .zero = result == 0x0,
+            .subtraction = false,
+            .halfCarry = false,
+            .carry = false,
+        };
+        return result;
+    }
+    pub fn logicalXor(self: *Self, op1: u16, op2: u16) u16 {
+        const result = op1 ^ op2;
+        self.flags = .{
+            .zero = result == 0x0,
+            .subtraction = false,
+            .halfCarry = false,
+            .carry = false,
+        };
+        return result;
+    }
+    pub fn cmp(self: *Self, op1: u16, op2: u16) void {
+        _ = self.subtract(op1, op2, 1, false);
+    }
+    pub fn swap(self: *Self, op1: u16) u16 {
+        const result = 0xFF & (op1 << 4) + (op1 >> 4);
+        self.flags = .{
+            .zero = result == 0x0,
+            .subtraction = false,
+            .halfCarry = false,
+            .carry = false,
+        };
+        return result;
+    }
+    fn RegisterAMOps(self: *Self, operation: MOps, value: u16, size: u2, useCarry: bool) void {
+        switch (operation) {
+            MOps.add => {
+                self.WriteRegister(RegisterName.A, self.add(self.ReadRegister(RegisterName.A), value, size, useCarry));
+            },
+            MOps.subtract => {
+                self.WriteRegister(RegisterName.A, self.subtract(self.ReadRegister(RegisterName.A), value, size, useCarry));
+            },
+            MOps.logicalAnd => {
+                self.WriteRegister(RegisterName.A, self.logicalAnd(self.ReadRegister(RegisterName.A), value));
+            },
+            MOps.logicalOr => {
+                self.WriteRegister(RegisterName.A, self.logicalOr(self.ReadRegister(RegisterName.A), value));
+            },
+            MOps.logicalXor => {
+                self.WriteRegister(RegisterName.A, self.logicalXor(self.ReadRegister(RegisterName.A), value));
+            },
+            MOps.cmp => {
+                self.cmp(self.ReadRegister(RegisterName.A), value);
+            },
+        }
     }
 
     pub fn Tick(self: *Self) void {
@@ -275,17 +362,9 @@ pub const CPU = struct {
             0xF9 => { self.LoadRegisterFromRegister(RegisterName.HL, RegisterName.SP); },
 
             0xF8 => {
-                var SP: u32 = self.ReadRegister(RegisterName.SP);
-                var NL: u32 =  self.memory[self.programCounter];
-                const result = SP + NL;
-                const halfCarry: bool = ((SP ^ NL ^ result) & 0x10) == 0x10;
-                const carry: bool = (result & 0x10000) == 0x10000;
-                if (halfCarry) self.FlagSet(Flag.HalfCarry) else self.FlagUnSet(Flag.HalfCarry);
-                if (carry) self.FlagSet(Flag.Carry) else self.FlagUnSet(Flag.Carry);
-                self.FlagUnSet(Flag.Zero);
-                self.FlagUnSet(Flag.Subtraction);
-                self.WriteRegister(RegisterName.SP, @as(u16,@truncate(result)));
-
+                // get effective address
+                const eax = self.add(self.ReadRegister(RegisterName.SP), self.ReadMemory(self.programCounter,1), 2, false);
+                self.WriteRegister(RegisterName.HL, self.ReadMemory(eax, 2));
             },
 
             0x08 => { self.WriteMemoryByteFromAddressNN(RegisterName.SP, 2); },
@@ -299,6 +378,134 @@ pub const CPU = struct {
             0xC1 => { self.StackPop(RegisterName.BC); },
             0xD1 => { self.StackPop(RegisterName.DE); },
             0xE1 => { self.StackPop(RegisterName.HL); },
+
+            // ADD A,m
+            0x87 => { self.RegisterAMOps(MOps.add, self.ReadRegister(RegisterName.A), 1, false); },
+            0x80 => { self.RegisterAMOps(MOps.add, self.ReadRegister(RegisterName.B), 1, false); },
+            0x81 => { self.RegisterAMOps(MOps.add, self.ReadRegister(RegisterName.C), 1, false); },
+            0x82 => { self.RegisterAMOps(MOps.add, self.ReadRegister(RegisterName.D), 1, false); },
+            0x83 => { self.RegisterAMOps(MOps.add, self.ReadRegister(RegisterName.E), 1, false); },
+            0x84 => { self.RegisterAMOps(MOps.add, self.ReadRegister(RegisterName.H), 1, false); },
+            0x85 => { self.RegisterAMOps(MOps.add, self.ReadRegister(RegisterName.L), 1, false); },
+            0x86 => { self.RegisterAMOps(MOps.add, self.ReadMemory(self.ReadRegister(RegisterName.HL), 1), 1, false); },
+            0xC6 => { self.RegisterAMOps(MOps.add, self.ReadMemory(self.programCounter, 1), 1, false); },
+
+            // ADC A,n
+            0x8F => { self.RegisterAMOps(MOps.add, self.ReadRegister(RegisterName.A), 1, true); },
+            0x88 => { self.RegisterAMOps(MOps.add, self.ReadRegister(RegisterName.B), 1, true); },
+            0x89 => { self.RegisterAMOps(MOps.add, self.ReadRegister(RegisterName.C), 1, true); },
+            0x8A => { self.RegisterAMOps(MOps.add, self.ReadRegister(RegisterName.D), 1, true); },
+            0x8B => { self.RegisterAMOps(MOps.add, self.ReadRegister(RegisterName.E), 1, true); },
+            0x8C => { self.RegisterAMOps(MOps.add, self.ReadRegister(RegisterName.H), 1, true); },
+            0x8D => { self.RegisterAMOps(MOps.add, self.ReadRegister(RegisterName.L), 1, true); },
+            0x8E => { self.RegisterAMOps(MOps.add, self.ReadMemory(self.ReadRegister(RegisterName.HL), 1), 1, true); },
+            0xCE => { self.RegisterAMOps(MOps.add, self.ReadMemory(self.programCounter, 1), 1, true); },
+
+            // SUB A,n
+            0x97 => { self.RegisterAMOps(MOps.subtract, self.ReadRegister(RegisterName.A), 1, false); },
+            0x90 => { self.RegisterAMOps(MOps.subtract, self.ReadRegister(RegisterName.B), 1, false); },
+            0x91 => { self.RegisterAMOps(MOps.subtract, self.ReadRegister(RegisterName.C), 1, false); },
+            0x92 => { self.RegisterAMOps(MOps.subtract, self.ReadRegister(RegisterName.D), 1, false); },
+            0x93 => { self.RegisterAMOps(MOps.subtract, self.ReadRegister(RegisterName.E), 1, false); },
+            0x94 => { self.RegisterAMOps(MOps.subtract, self.ReadRegister(RegisterName.H), 1, false); },
+            0x95 => { self.RegisterAMOps(MOps.subtract, self.ReadRegister(RegisterName.L), 1, false); },
+            0x96 => { self.RegisterAMOps(MOps.subtract, self.ReadMemory(self.ReadRegister(RegisterName.HL), 1), 1, false); },
+            0xD6 => { self.RegisterAMOps(MOps.subtract, self.ReadMemory(self.programCounter, 1), 1, false); },
+
+            // SBC A.n
+            0x9F => { self.RegisterAMOps(MOps.subtract, self.ReadRegister(RegisterName.A), 1, true); },
+            0x98 => { self.RegisterAMOps(MOps.subtract, self.ReadRegister(RegisterName.B), 1, true); },
+            0x99 => { self.RegisterAMOps(MOps.subtract, self.ReadRegister(RegisterName.C), 1, true); },
+            0x9A => { self.RegisterAMOps(MOps.subtract, self.ReadRegister(RegisterName.D), 1, true); },
+            0x9B => { self.RegisterAMOps(MOps.subtract, self.ReadRegister(RegisterName.E), 1, true); },
+            0x9C => { self.RegisterAMOps(MOps.subtract, self.ReadRegister(RegisterName.H), 1, true); },
+            0x9D => { self.RegisterAMOps(MOps.subtract, self.ReadRegister(RegisterName.L), 1, true); },
+            0x9E => { self.RegisterAMOps(MOps.subtract, self.ReadMemory(self.ReadRegister(RegisterName.HL), 1), 1, true); },
+            // undefined 0x?? => { self.RegisterAMOps(MOps.subtract, self.ReadMemory(self.programCounter, 1), 1, true); }
+
+            // AND
+            0xA7 => { self.RegisterAMOps(MOps.logicalAnd, self.ReadRegister(RegisterName.A), 0, false); },
+            0xA0 => { self.RegisterAMOps(MOps.logicalAnd, self.ReadRegister(RegisterName.B), 0, false); },
+            0xA1 => { self.RegisterAMOps(MOps.logicalAnd, self.ReadRegister(RegisterName.C), 0, false); },
+            0xA2 => { self.RegisterAMOps(MOps.logicalAnd, self.ReadRegister(RegisterName.D), 0, false); },
+            0xA3 => { self.RegisterAMOps(MOps.logicalAnd, self.ReadRegister(RegisterName.E), 0, false); },
+            0xA4 => { self.RegisterAMOps(MOps.logicalAnd, self.ReadRegister(RegisterName.H), 0, false); },
+            0xA5 => { self.RegisterAMOps(MOps.logicalAnd, self.ReadRegister(RegisterName.L), 0, false); },
+            0xA6 => { self.RegisterAMOps(MOps.logicalAnd, self.ReadMemory(self.ReadRegister(RegisterName.HL), 1), 0, false); },
+            0xE6 => { self.RegisterAMOps(MOps.logicalAnd, self.ReadMemory(self.programCounter, 1), 0, false); },
+
+            // OR
+            0xB7 => { self.RegisterAMOps(MOps.logicalOr, self.ReadRegister(RegisterName.A), 0, false); },
+            0xB0 => { self.RegisterAMOps(MOps.logicalOr, self.ReadRegister(RegisterName.B), 0, false); },
+            0xB1 => { self.RegisterAMOps(MOps.logicalOr, self.ReadRegister(RegisterName.C), 0, false); },
+            0xB2 => { self.RegisterAMOps(MOps.logicalOr, self.ReadRegister(RegisterName.D), 0, false); },
+            0xB3 => { self.RegisterAMOps(MOps.logicalOr, self.ReadRegister(RegisterName.E), 0, false); },
+            0xB4 => { self.RegisterAMOps(MOps.logicalOr, self.ReadRegister(RegisterName.H), 0, false); },
+            0xB5 => { self.RegisterAMOps(MOps.logicalOr, self.ReadRegister(RegisterName.L), 0, false); },
+            0xB6 => { self.RegisterAMOps(MOps.logicalOr, self.ReadMemory(self.ReadRegister(RegisterName.HL), 1), 0, false); },
+            0xF6 => { self.RegisterAMOps(MOps.logicalOr, self.ReadMemory(self.programCounter, 1), 0, false); },
+
+            // XOR
+            0xAF => { self.RegisterAMOps(MOps.logicalOr, self.ReadRegister(RegisterName.A), 0, false); },
+            0xA8 => { self.RegisterAMOps(MOps.logicalOr, self.ReadRegister(RegisterName.B), 0, false); },
+            0xA9 => { self.RegisterAMOps(MOps.logicalOr, self.ReadRegister(RegisterName.C), 0, false); },
+            0xAA => { self.RegisterAMOps(MOps.logicalOr, self.ReadRegister(RegisterName.D), 0, false); },
+            0xAB => { self.RegisterAMOps(MOps.logicalOr, self.ReadRegister(RegisterName.E), 0, false); },
+            0xAC => { self.RegisterAMOps(MOps.logicalOr, self.ReadRegister(RegisterName.H), 0, false); },
+            0xAD => { self.RegisterAMOps(MOps.logicalOr, self.ReadRegister(RegisterName.L), 0, false); },
+            0xAE => { self.RegisterAMOps(MOps.logicalOr, self.ReadMemory(self.ReadRegister(RegisterName.HL), 1), 0, false); },
+            0xEE => { self.RegisterAMOps(MOps.logicalOr, self.ReadMemory(self.programCounter, 1), 0, false); },
+
+            // CMP
+            0xBF => { self.RegisterAMOps(MOps.cmp, self.ReadRegister(RegisterName.A), 0, false); },
+            0xB8 => { self.RegisterAMOps(MOps.cmp, self.ReadRegister(RegisterName.B), 0, false); },
+            0xB9 => { self.RegisterAMOps(MOps.cmp, self.ReadRegister(RegisterName.C), 0, false); },
+            0xBA => { self.RegisterAMOps(MOps.cmp, self.ReadRegister(RegisterName.D), 0, false); },
+            0xBB => { self.RegisterAMOps(MOps.cmp, self.ReadRegister(RegisterName.E), 0, false); },
+            0xBC => { self.RegisterAMOps(MOps.cmp, self.ReadRegister(RegisterName.H), 0, false); },
+            0xBD => { self.RegisterAMOps(MOps.cmp, self.ReadRegister(RegisterName.L), 0, false); },
+            0xBE => { self.RegisterAMOps(MOps.cmp, self.ReadMemory(self.ReadRegister(RegisterName.HL), 1), 0, false); },
+            0xFE => { self.RegisterAMOps(MOps.cmp, self.ReadMemory(self.programCounter, 1), 0, false); },
+
+            // INC
+            0x3C => { self.RegisterIncrement(RegisterName.A); },
+            0x04 => { self.RegisterIncrement(RegisterName.B); },
+            0x0C => { self.RegisterIncrement(RegisterName.C); },
+            0x14 => { self.RegisterIncrement(RegisterName.D); },
+            0x1C => { self.RegisterIncrement(RegisterName.E); },
+            0x24 => { self.RegisterIncrement(RegisterName.H); },
+            0x2C => { self.RegisterIncrement(RegisterName.L); },
+            0x34 => { self.WriteMemory(self.ReadRegister(RegisterName.HL), self.add(self.ReadMemory(self.ReadRegister(RegisterName.HL), 1), 0x1, 1, false), 1); },
+            0x03 => { self.RegisterIncrement(RegisterName.BC); },
+            0x13 => { self.RegisterIncrement(RegisterName.DE); },
+            0x23 => { self.RegisterIncrement(RegisterName.HL); },
+            0x33 => { self.RegisterIncrement(RegisterName.SP); },
+
+            // DEC
+            0x3D => { self.RegisterDecrement(RegisterName.A); },
+            0x05 => { self.RegisterDecrement(RegisterName.B); },
+            0x0D => { self.RegisterDecrement(RegisterName.C); },
+            0x15 => { self.RegisterDecrement(RegisterName.D); },
+            0x1D => { self.RegisterDecrement(RegisterName.E); },
+            0x25 => { self.RegisterDecrement(RegisterName.H); },
+            0x2D => { self.RegisterDecrement(RegisterName.L); },
+            0x35 => { self.WriteMemory(self.ReadRegister(RegisterName.HL), self.subtract(self.ReadMemory(self.ReadRegister(RegisterName.HL), 1), 0x1, 1, false), 1); },
+            0x0B => { self.RegisterDecrement(RegisterName.BC); },
+            0x1B => { self.RegisterDecrement(RegisterName.DE); },
+            0x2B => { self.RegisterDecrement(RegisterName.HL); },
+            0x3B => { self.RegisterDecrement(RegisterName.SP); },
+
+            // ADD HL,n
+            0x09 => {self.WriteRegister(RegisterName.HL, self.add(self.ReadRegister(RegisterName.HL), self.ReadRegister(RegisterName.BC), 1, false)); },
+            0x19 => {self.WriteRegister(RegisterName.HL, self.add(self.ReadRegister(RegisterName.HL), self.ReadRegister(RegisterName.DE), 1, false)); },
+            0x29 => {self.WriteRegister(RegisterName.HL, self.add(self.ReadRegister(RegisterName.HL), self.ReadRegister(RegisterName.HL), 1, false)); },
+            0x39 => {self.WriteRegister(RegisterName.HL, self.add(self.ReadRegister(RegisterName.HL), self.ReadRegister(RegisterName.SP), 1, false)); },
+
+           // ADD SP,n
+           0xE8 => {
+                self.WriteRegister(RegisterName.SP, self.add( self.ReadRegister(RegisterName.SP), self.ReadMemory(self.programCounter, 1),  1, false ));
+            },
+
 
             // zig fmt: on
             else => undefined,
@@ -322,13 +529,10 @@ pub const CPU = struct {
     pub fn dump(self: *Self, msg: []const u8) void {
         var x: u8 = 0;
         std.debug.print("====  {s}  ====\n", .{msg});
-        std.debug.print("PC: {X} SP: {X} Flags: Z{} S{} H{} C{}\n", .{
+        std.debug.print("PC: {X} SP: {X} Flags: {}\n", .{
             self.programCounter,
             self.ReadRegister(RegisterName.SP),
-            self.FlagRead(Flag.Zero),
-            self.FlagRead(Flag.Subtraction),
-            self.FlagRead(Flag.HalfCarry),
-            self.FlagRead(Flag.Carry),
+            self.flags,
         });
 
         while (x < 13) : (x += 1) {

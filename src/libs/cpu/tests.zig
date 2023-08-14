@@ -3,7 +3,7 @@ const expect = @import("std").testing.expect;
 
 const CPU = @import("cpu.zig").CPU;
 const R = @import("types.zig").RegisterName;
-const Flag = @import("types.zig").Flag;
+const Flags = @import("types.zig").Flags;
 
 test "Test a register can be written to" {
     var cpu = CPU{};
@@ -20,6 +20,7 @@ test "Test that writing to an 16 bit register writes to the 8bit meta-registers"
 }
 test "Test that writing to an 8bit register writes to the 16bit meta-register" {
     var cpu = CPU{};
+
 
     cpu.WriteRegister(R.C, 0xEF);
     cpu.WriteRegister(R.B, 0xBE);
@@ -41,13 +42,6 @@ test "Reading bytes from memory" {
     cpu.WriteMemory(0x0, 0xBEEF, 2);
     try expect(cpu.ReadMemory(0x0, 2) == 0xBEEF);
     try expect(cpu.ReadMemory(0x0, 1) == 0x00EF);
-}
-test "Test that flags can be set and unset" {
-    var cpu = CPU{};
-    cpu.FlagSet(Flag.Zero);
-    try expect(cpu.FlagRead(Flag.Zero) == true);
-    cpu.FlagUnSet(Flag.Zero);
-    try expect(cpu.FlagRead(Flag.Zero) == false);
 }
 test "Test ticking increments PC" {
     var cpu = CPU{};
@@ -202,17 +196,21 @@ test "Test LD n,nn (16bit)" {
 test "Test LDHL SP,n" {
     var cpu = CPU{};
     cpu.WriteRegister(R.HL, 0x0000);
-    cpu.WriteRegister(R.SP, 0xBEEA);
+    cpu.WriteRegister(R.SP, 0xFFFC);
+    cpu.WriteMemory(0xFFFE, 0xDEAD, 2);
 
-    cpu.WriteMemory(0, 0xF8, 1);
-    cpu.WriteMemory(1, 0x06, 1);
+    cpu.WriteMemory(0x0, 0xF8, 1);
+    cpu.WriteMemory(0x1, 0x02, 1);
 
     cpu.Tick();
-    try expect(cpu.ReadRegister(R.SP) == 0xBEF0);
-    try expect(cpu.FlagRead(Flag.Zero) == false);
-    try expect(cpu.FlagRead(Flag.Subtraction) == false);
-    try expect(cpu.FlagRead(Flag.HalfCarry) == true);
-    try expect(cpu.FlagRead(Flag.Carry) == false);
+
+    try expect(cpu.ReadRegister(R.HL) == 0xDEAD);
+
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == false);
+    try expect(cpu.flags.carry == false);
+
 }
 
 test "Test LD (nn),SP" {
@@ -234,8 +232,7 @@ test "Test PUSH" {
     cpu.WriteMemory(0, 0xC5, 1);
 
     cpu.Tick();
-    try expect(cpu.ReadMemory(cpu.ReadRegister(R.SP)+2, 2) == 0xBEEF);
-
+    try expect(cpu.ReadMemory(cpu.ReadRegister(R.SP) + 2, 2) == 0xBEEF);
 }
 
 test "Test POP" {
@@ -249,4 +246,227 @@ test "Test POP" {
     cpu.Tick();
     try expect(cpu.ReadRegister(R.BC) == 0xBEEF);
     try expect(cpu.ReadRegister(R.SP) == 0xFFFE);
+}
+
+test "Flag bitfield can be written and read to" {
+    var cpu = CPU{};
+    cpu.flags.zero = true;
+
+    try expect(cpu.flags.zero == true);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == false);
+    try expect(cpu.flags.carry == false);
+}
+
+test "ALU: Add8 with no carry" {
+    var cpu = CPU{};
+
+    const result = cpu.add(0x0002, 0x0003, 1, false);
+    try expect(result == 0x0005);
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == false);
+    try expect(cpu.flags.carry == false);
+}
+
+test "ALU: Add8 with half carry" {
+    var cpu = CPU{};
+
+    const result = cpu.add(0x000E, 0x0002, 1, false);
+    try expect(result == 0x0010);
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == true);
+    try expect(cpu.flags.carry == false);
+}
+
+test "ALU: Add8 with Full carry" {
+    var cpu = CPU{};
+
+    const result = cpu.add(0x00FF, 0x0001, 1, false);
+    try expect(result == 0x0000);
+    try expect(cpu.flags.zero == true);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == true);
+    try expect(cpu.flags.carry == true);
+}
+
+test "ALU: Add16 with no carry" {
+    var cpu = CPU{};
+
+    const result = cpu.add(0x00F2, 0x0003, 2, false);
+    try expect(result == 0x00F5);
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == false);
+    try expect(cpu.flags.carry == false);
+}
+
+test "ALU: Add16 with half carry" {
+    var cpu = CPU{};
+
+    const result = cpu.add(0xEFF0, 0x0010, 2, false);
+
+    try expect(result == 0xF000);
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == true);
+    try expect(cpu.flags.carry == false);
+}
+
+test "ALU: Add16 with Full carry" {
+    var cpu = CPU{};
+
+    const result = cpu.add(0xFFFF, 0x0001, 2, false);
+    try expect(result == 0x0000);
+    try expect(cpu.flags.zero == true);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == true);
+    try expect(cpu.flags.carry == true);
+}
+
+test "ALU: ADC A,n n=B" {
+    var cpu = CPU{};
+    cpu.flags.carry = true;
+    cpu.WriteRegister(R.A, 0x05);
+    cpu.WriteMemory(0x0, 0x88, 1);
+    cpu.WriteRegister(R.B, 0x05);
+
+    cpu.Tick();
+
+    try expect(cpu.ReadRegister(R.A) == 0x0B);
+}
+
+test "ALU: ADC A,n n=(HL)" {
+    var cpu = CPU{};
+    cpu.flags.carry = true;
+    cpu.WriteRegister(R.A, 0x05);
+    cpu.WriteRegister(R.HL, 0xDEAD);
+    cpu.WriteMemory(0xDEAD, 0x06, 1);
+
+    cpu.WriteMemory(0x0, 0x8E, 1);
+
+    cpu.Tick();
+
+    try expect(cpu.ReadRegister(R.A) == 0x0C);
+}
+
+test "ALU: ADC A,n n=#" {
+    var cpu = CPU{};
+    cpu.flags.carry = true;
+    cpu.WriteRegister(R.A, 0x05);
+
+    cpu.WriteMemory(0x0, 0xCE, 1);
+    cpu.WriteMemory(0x1, 0x15, 1);
+
+    cpu.Tick();
+
+    try expect(cpu.ReadRegister(R.A) == 0x1B);
+}
+
+test "ALU: SUB with no carry" {
+    var cpu = CPU{};
+
+    const result = cpu.subtract(0x0010, 0x0005, 1, false);
+    try expect(result == 0x000B);
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == true);
+    try expect(cpu.flags.halfCarry == true);
+    try expect(cpu.flags.carry == false);
+}
+
+test "ALU: SUB with half carry" {
+    var cpu = CPU{};
+
+    const result = cpu.subtract(0x00FF, 0x00CC, 1, false);
+    try expect(result == 0x0033);
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == true);
+    try expect(cpu.flags.halfCarry == false);
+    try expect(cpu.flags.carry == false);
+}
+
+test "ALU: SUB with Full carry" {
+    var cpu = CPU{};
+
+    const result = cpu.subtract(0x0000, 0x0001, 1, false);
+
+    try expect(result == 0xFF);
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == true);
+    try expect(cpu.flags.halfCarry == true);
+    try expect(cpu.flags.carry == true);
+}
+
+test "ALU: AND" {
+    var cpu = CPU{};
+
+    try expect(cpu.logicalAnd(0xF0, 0x0F) == 0x0);
+    try expect(cpu.flags.zero == true);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == true);
+    try expect(cpu.flags.carry == false);
+
+    try expect(cpu.logicalAnd(0x52, 0x75) == 0x50);
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == true);
+    try expect(cpu.flags.carry == false);
+}
+
+test "ALU: OR" {
+    var cpu = CPU{};
+
+    try expect(cpu.logicalOr(0x0, 0x0) == 0x0);
+    try expect(cpu.flags.zero == true);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == false);
+    try expect(cpu.flags.carry == false);
+
+    try expect(cpu.logicalOr(0xF0, 0x0F) == 0xFF);
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == false);
+    try expect(cpu.flags.carry == false);
+}
+
+test "ALU: XOR" {
+    var cpu = CPU{};
+
+    try expect(cpu.logicalXor(0xFF, 0xFF) == 0x0);
+    try expect(cpu.flags.zero == true);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == false);
+    try expect(cpu.flags.carry == false);
+
+    try expect(cpu.logicalXor(0x66, 0xAA) == 0xCC);
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == false);
+    try expect(cpu.flags.halfCarry == false);
+    try expect(cpu.flags.carry == false);
+}
+
+test "ALU: CP" {
+    var cpu = CPU{};
+
+    cpu.cmp(0xFF, 0xFF);
+    try expect(cpu.flags.zero == true);
+    try expect(cpu.flags.subtraction == true);
+    try expect(cpu.flags.halfCarry == false);
+    try expect(cpu.flags.carry == false);
+
+    cpu.cmp(0x66, 0xAA);
+    try expect(cpu.flags.zero == false);
+    try expect(cpu.flags.subtraction == true);
+    try expect(cpu.flags.halfCarry == true);
+    try expect(cpu.flags.carry == true);
+}
+
+test "Misc: SWAP" {
+    var cpu = CPU{};
+
+    const result = cpu.swap(0xEB);
+
+    try expect(result == 0xBE);
+
 }

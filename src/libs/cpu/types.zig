@@ -1,3 +1,5 @@
+const std = @import("std");
+
 pub const RegisterName = enum(u16) {
     // zig fmt: off
     A, F, B, C, D, E, H, L, //"8 bit" registers
@@ -6,9 +8,24 @@ pub const RegisterName = enum(u16) {
     // zig fmt: on
 };
 
-pub const Flag = enum(u4) {
-    Zero,
-    Subtraction,
-    HalfCarry,
-    Carry,
+pub const Flags = packed struct(u8) {
+    zero: bool = false,
+    subtraction: bool = false,
+    halfCarry: bool = false,
+    carry: bool = false,
+    _padding: u4 = 0,
+
+    comptime {
+        std.debug.assert(@sizeOf(@This()) == @sizeOf(u8));
+        std.debug.assert(@bitSizeOf(@This()) == @bitSizeOf(u8));
+    }
+};
+
+pub const MathOperations = enum {
+    add,
+    subtract,
+    logicalAnd,
+    logicalOr,
+    logicalXor,
+    cmp,
 };
