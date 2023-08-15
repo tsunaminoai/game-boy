@@ -3,7 +3,6 @@ const RegisterName = @import("types.zig").RegisterName;
 const Flags = @import("types.zig").Flags;
 const MOps = @import("types.zig").MathOperations;
 
-
 // todo: fix this before merging, its only 10x because of the dump() fn
 const MemorySize = 80000;
 const MemoryOffset: u16 = 0xFF00;
@@ -14,10 +13,10 @@ fn getMSB(value: u16) u8 {
 fn getLSB(value: u16) u8 {
     return @as(u8, @truncate(value & 0x00FF));
 }
-fn setMSB(val16: u16, val8: u16) u16 {
+fn setLSB(val16: u16, val8: u16) u16 {
     return (val8 << 8) | (val16);
 }
-fn setLSB(val16: u16, val8: u16) u16 {
+fn setMSB(val16: u16, val8: u16) u16 {
     return (val16) | (val8 & 0x00FF);
 }
 
@@ -47,13 +46,28 @@ pub const CPU = struct {
                 // set the register above
                 const combinedIndex = 8 + index / 2;
                 const currentValue = self.registers[combinedIndex];
-                self.registers[combinedIndex] = if (index % 2 == 0) setMSB(currentValue, value) else setLSB(currentValue, value);
+                self.registers[combinedIndex] = if (index % 2 == 0) setLSB(currentValue, value) else setMSB(currentValue, value);
             },
             // for 16 bit "combined" registers
-            8...11 => {
+            8 => {
                 // set the registers 8 and 7 spaces below
-                self.registers[index - 8] = getLSB(value);
-                self.registers[index - 7] = getMSB(value);
+                self.registers[0] = getLSB(value);
+                self.registers[1] = getMSB(value);
+            },
+            9 => {
+                // set the registers 8 and 7 spaces below
+                self.registers[2] = getLSB(value);
+                self.registers[3] = getMSB(value);
+            },
+            10 => {
+                // set the registers 8 and 7 spaces below
+                self.registers[4] = getLSB(value);
+                self.registers[5] = getMSB(value);
+            },
+            11 => {
+                // set the registers 8 and 7 spaces below
+                self.registers[6] = getLSB(value);
+                self.registers[7] = getMSB(value);
             },
             12 => {},
             else => {
@@ -506,10 +520,37 @@ pub const CPU = struct {
                 self.WriteRegister(RegisterName.SP, self.add( self.ReadRegister(RegisterName.SP), self.ReadMemory(self.programCounter, 1),  1, false ));
             },
 
+            // JP nn
+            0xC3 => { self.jump(self.ReadMemory(self.programCounter, 2)); },
+            // JP cc,nn
+            0xC2 => { if( self.flags.zero == false) { self.jump(self.ReadMemory(self.programCounter, 2)); } },
+            0xCA => { if( self.flags.zero == true)  { self.jump(self.ReadMemory(self.programCounter, 2)); }  },
+            0xD2 => { if( self.flags.carry == false) { self.jump(self.ReadMemory(self.programCounter, 2)); }  },
+            0xDA => { if( self.flags.carry == true) { self.jump(self.ReadMemory(self.programCounter, 2)); }  },
+            0xE9 => { self.jump(self.ReadMemory(self.ReadRegister(RegisterName.HL), 2)); },
+
+            // JR n
+            0x18 => { self.AddAndJump(); },
+            0x20 => { if( self.flags.zero == false)  { self.AddAndJump(); } },
+            0x28 => { if( self.flags.zero == true)   { self.AddAndJump(); } },
+            0x30 => { if( self.flags.carry == false) { self.AddAndJump(); } },
+            0x38 => { if( self.flags.carry == true)  { self.AddAndJump(); } },
+
 
             // zig fmt: on
             else => undefined,
         }
+    }
+    pub fn AddAndJump(self: *Self) void {
+        self.AddToHL(self.ReadMemory(self.programCounter, 1));
+        self.jump(self.ReadRegister(RegisterName.HL));
+    }
+    pub fn AddToHL(self: *Self, value: u16) void {
+        const HL = self.ReadRegister(RegisterName.HL);
+        self.WriteRegister(RegisterName.HL, self.add(HL, value, 2, false));
+    }
+    pub fn jump(self: *Self, address: u16) void {
+        self.programCounter = address;
     }
     pub fn RegisterIncrement(self: *Self, register: RegisterName) void {
         self.registers[@intFromEnum(register)] +%= 0x1;
