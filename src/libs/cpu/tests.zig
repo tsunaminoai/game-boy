@@ -249,6 +249,7 @@ test "Test POP" {
     cpu.WriteMemory(0xFFFC, 0xBEEF, 2);
 
     cpu.Tick();
+
     try expect(cpu.ReadRegister(R.BC) == 0xBEEF);
     try expect(cpu.ReadRegister(R.SP) == 0xFFFE);
 }
@@ -577,4 +578,19 @@ test "JUMP: JR n" {
     cpu.Tick();
 
     try expect(cpu.programCounter == 0xBEF4);
+}
+
+test "CALL: CALL nn" {
+    var cpu = CPU{};
+
+    cpu.WriteMemory(0x0, 0xCD, 1);
+    cpu.WriteRegister(R.SP, 0xFFFE);
+    cpu.WriteRegister(R.HL, 0xBEEF);
+    cpu.WriteMemory(0x1, 0xDEAD, 2);
+    cpu.Tick();
+
+    try expect(cpu.programCounter == 0xDEAD);
+    try expect(cpu.ReadRegister(R.SP) == 0xFFFC);
+    try expect(cpu.memory[0xFFFF] == 0xBE);
+    try expect(cpu.memory[0xFFFE] == 0xEF);
 }
