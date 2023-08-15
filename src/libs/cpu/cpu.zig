@@ -3,8 +3,7 @@ const RegisterName = @import("types.zig").RegisterName;
 const Flags = @import("types.zig").Flags;
 const MOps = @import("types.zig").MathOperations;
 
-// todo: fix this before merging, its only 10x because of the dump() fn
-const MemorySize = 80000;
+const MemorySize = 0x10000;
 const MemoryOffset: u16 = 0xFF00;
 
 fn getMSB(value: u16) u8 {
@@ -25,14 +24,17 @@ pub const CPU = struct {
     registers: [14]u16 = [_]u16{0} ** 14,
     flags: Flags = Flags{},
     programCounter: u16 = 0,
+    currentIntruction: u16 = 0,
+    ticks: u16 = 0,
+    halt: bool = false,
 
     const Self = @This();
     const Address = u16;
 
     pub fn Run(self: *Self) void {
-        var steps: u64 = 0;
-        while (steps < 200 ) : (steps += 1) {
+        while ((!self.halt) and (self.ticks < 5)) {
             self.Tick();
+            std.debug.print("Tick {} Instruction {X}\n", .{self.ticks, self.currentIntruction});
         }
     }
 
@@ -249,7 +251,10 @@ pub const CPU = struct {
 
     pub fn Tick(self: *Self) void {
         const opcode = self.memory[self.programCounter];
+        self.currentIntruction = opcode;
         self.programCounter += 1;
+        self.ticks += 1;
+
         switch (opcode) {
             // zig fmt: off
 
