@@ -551,8 +551,31 @@ pub const CPU = struct {
                 self.StackPush(RegisterName.HL);
                 self.jump(self.ReadMemory(self.programCounter, 2));
             },
-
-
+            // CALL cc,nn
+            0xC4 => { if( self.flags.zero == false)
+                self.StackPush(RegisterName.HL);
+                self.jump(self.ReadMemory(self.programCounter, 2));
+            },
+            0xCC => { if( self.flags.zero == true)
+                self.StackPush(RegisterName.HL);
+                self.jump(self.ReadMemory(self.programCounter, 2));
+            },
+            0xD4 => { if( self.flags.carry == false)
+                self.StackPush(RegisterName.HL);
+                self.jump(self.ReadMemory(self.programCounter, 2));
+            },
+            0xDC => { if( self.flags.carry == true)
+                self.StackPush(RegisterName.HL);
+                self.jump(self.ReadMemory(self.programCounter, 2));
+            },
+            0xC7 => { self.StackPush(RegisterName.HL); self.jump(0x00); },
+            0xCF => { self.StackPush(RegisterName.HL); self.jump(0x08); },
+            0xD7 => { self.StackPush(RegisterName.HL); self.jump(0x10); },
+            0xDF => { self.StackPush(RegisterName.HL); self.jump(0x18); },
+            0xE7 => { self.StackPush(RegisterName.HL); self.jump(0x20); },
+            0xEF => { self.StackPush(RegisterName.HL); self.jump(0x28); },
+            0xF7 => { self.StackPush(RegisterName.HL); self.jump(0x30); },
+            0xFF => { self.StackPush(RegisterName.HL); self.jump(0x38); },
             // zig fmt: on
             else => undefined,
         }
