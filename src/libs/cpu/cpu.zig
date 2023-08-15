@@ -123,16 +123,25 @@ pub const CPU = struct {
 
     /// Pushes the source register onto the stack
     fn StackPush(self: *Self, sourceRegisterName: RegisterName) void {
-        self.WriteMemory(self.ReadRegister(RegisterName.SP), self.ReadRegister(sourceRegisterName), 2);
+        const SP = self.ReadRegister(RegisterName.SP);
+        const LSB = getLSB(self.ReadRegister(sourceRegisterName));
+        const MSB = getMSB(self.ReadRegister(sourceRegisterName));
+        self.WriteMemory(SP + 1, MSB, 1);
+        self.WriteMemory(SP, LSB, 1);
         self.RegisterDecrement(RegisterName.SP);
         self.RegisterDecrement(RegisterName.SP);
     }
 
     /// Pops the stack into the destination register
     fn StackPop(self: *Self, destinationRegisterName: RegisterName) void {
-        self.WriteRegister(destinationRegisterName, self.ReadMemory(self.ReadRegister(RegisterName.SP), 2));
+        var result: u16 = 0;
         self.RegisterIncrement(RegisterName.SP);
         self.RegisterIncrement(RegisterName.SP);
+
+        const SP = self.ReadRegister(RegisterName.SP);
+        result = setLSB(result, self.ReadMemory(SP + 1, 1));
+        result = setMSB(result, self.ReadMemory(SP, 1));
+        self.WriteRegister(destinationRegisterName, result);
     }
 
     pub fn adder(self: *Self, op1: u16, op2: u16, size: u2, useCarry: bool, subtraction: bool) u16 {
@@ -536,6 +545,47 @@ pub const CPU = struct {
             0x30 => { if( self.flags.carry == false) { self.AddAndJump(); } },
             0x38 => { if( self.flags.carry == true)  { self.AddAndJump(); } },
 
+            // CALL nn
+            0xCD => {
+                self.StackPush(RegisterName.HL);
+                self.jump(self.ReadMemory(self.programCounter, 2));
+            },
+            // CALL cc,nn
+            0xC4 => { if( self.flags.zero == false)
+                self.StackPush(RegisterName.HL);
+                self.jump(self.ReadMemory(self.programCounter, 2));
+            },
+            0xCC => { if( self.flags.zero == true)
+                self.StackPush(RegisterName.HL);
+                self.jump(self.ReadMemory(self.programCounter, 2));
+            },
+            0xD4 => { if( self.flags.carry == false)
+                self.StackPush(RegisterName.HL);
+                self.jump(self.ReadMemory(self.programCounter, 2));
+            },
+            0xDC => { if( self.flags.carry == true)
+                self.StackPush(RegisterName.HL);
+                self.jump(self.ReadMemory(self.programCounter, 2));
+            },
+
+            // RST
+            0xC7 => { self.StackPush(RegisterName.HL); self.jump(0x00); },
+            0xCF => { self.StackPush(RegisterName.HL); self.jump(0x08); },
+            0xD7 => { self.StackPush(RegisterName.HL); self.jump(0x10); },
+            0xDF => { self.StackPush(RegisterName.HL); self.jump(0x18); },
+            0xE7 => { self.StackPush(RegisterName.HL); self.jump(0x20); },
+            0xEF => { self.StackPush(RegisterName.HL); self.jump(0x28); },
+            0xF7 => { self.StackPush(RegisterName.HL); self.jump(0x30); },
+            0xFF => { self.StackPush(RegisterName.HL); self.jump(0x38); },
+
+            // RET
+            // todo: RETI
+            0xC9, 0xD9 => { self.StackPop(RegisterName.HL); self.jump(self.ReadRegister(RegisterName.HL)); },
+            // RET cc
+            0xC0 => { if( self.flags.zero == false) { self.StackPop(RegisterName.HL); self.jump(self.ReadRegister(RegisterName.HL)); } },
+            0xC8 => { if( self.flags.zero == true) { self.StackPop(RegisterName.HL); self.jump(self.ReadRegister(RegisterName.HL)); } },
+            0xD0 => {  if( self.flags.carry == false) { self.StackPop(RegisterName.HL); self.jump(self.ReadRegister(RegisterName.HL)); } },
+            0xD8 => { if( self.flags.carry == true) { self.StackPop(RegisterName.HL); self.jump(self.ReadRegister(RegisterName.HL)); } },
 
             // zig fmt: on
             else => undefined,
@@ -561,9 +611,10 @@ pub const CPU = struct {
 
     fn dumpStack(self: *Self) void {
         std.debug.print("\n== Stack ==\n", .{});
-        var stackPtr = self.ReadRegister(RegisterName.SP);
-        while ((stackPtr <= 0xFFFE) and (stackPtr != 0)) : (stackPtr += 1) {
-            std.debug.print("{X}: {X}\n", .{ stackPtr, self.ReadMemory(stackPtr, 2) });
+        var stackPtrOffset: u16 = 0xFFFE;
+        const SP = self.ReadRegister(RegisterName.SP);
+        while (stackPtrOffset > SP) : (stackPtrOffset -= 2) {
+            std.debug.print("{X}: {X} {X}\n", .{ stackPtrOffset, self.ReadMemory(stackPtrOffset, 1), self.ReadMemory(stackPtrOffset + 1, 1) });
         }
         std.debug.print("== \\Stack ==\n", .{});
     }
