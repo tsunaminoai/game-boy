@@ -14,17 +14,24 @@ test "Test that writing to an 16 bit register writes to the 8bit meta-registers"
     var cpu = CPU{};
 
     cpu.WriteRegister(R.AF, 0xBEEF);
+    cpu.WriteRegister(R.HL, 0xBEEF);
 
     try expect(cpu.ReadRegister(R.A) == 0xEF);
     try expect(cpu.ReadRegister(R.F) == 0xBE);
+    try expect(cpu.ReadRegister(R.H) == 0xEF);
+    try expect(cpu.ReadRegister(R.L) == 0xBE);
 }
 test "Test that writing to an 8bit register writes to the 16bit meta-register" {
     var cpu = CPU{};
 
-
     cpu.WriteRegister(R.C, 0xEF);
     cpu.WriteRegister(R.B, 0xBE);
+    cpu.WriteRegister(R.L, 0xEF);
+    cpu.WriteRegister(R.H, 0xBE);
+    cpu.dump("reg");
+
     try expect(cpu.ReadRegister(R.BC) == 0xBEEF);
+    try expect(cpu.ReadRegister(R.HL) == 0xBEEF);
 }
 test "Writing memory for 1 byte" {
     var cpu = CPU{};
@@ -210,7 +217,6 @@ test "Test LDHL SP,n" {
     try expect(cpu.flags.subtraction == false);
     try expect(cpu.flags.halfCarry == false);
     try expect(cpu.flags.carry == false);
-
 }
 
 test "Test LD (nn),SP" {
@@ -468,5 +474,109 @@ test "Misc: SWAP" {
     const result = cpu.swap(0xEB);
 
     try expect(result == 0xBE);
+}
 
+test "JUMP: JP" {
+    var cpu = CPU{};
+
+    cpu.WriteMemory(0x0, 0xC3, 1);
+    cpu.WriteMemory(0x1, 0x0080, 2);
+    cpu.Tick();
+    try expect(cpu.programCounter == 0x0080);
+}
+
+test "JUMP: JP cc,nn NZ" {
+    var cpu = CPU{};
+    const opCode = 0xC2;
+
+    cpu.WriteMemory(0x0, opCode, 1);
+    cpu.WriteMemory(0x1, 0x0080, 2);
+    cpu.flags.zero = false;
+    cpu.Tick();
+
+    try expect(cpu.programCounter == 0x0080);
+
+    cpu.WriteMemory(0x0080, opCode, 1);
+    cpu.WriteMemory(0x0081, 0xDEAD, 2);
+    cpu.flags.zero = true;
+    cpu.Tick();
+    try expect(cpu.programCounter == 0x0081);
+}
+
+test "JUMP: JP cc,nn Z" {
+    var cpu = CPU{};
+    const opCode = 0xCA;
+
+    cpu.WriteMemory(0x0, opCode, 1);
+    cpu.WriteMemory(0x1, 0x0080, 2);
+    cpu.flags.zero = true;
+    cpu.Tick();
+
+    try expect(cpu.programCounter == 0x0080);
+
+    cpu.WriteMemory(0x0080, opCode, 1);
+    cpu.WriteMemory(0x0081, 0xDEAD, 2);
+    cpu.flags.zero = false;
+    cpu.Tick();
+    try expect(cpu.programCounter == 0x0081);
+}
+
+test "JUMP: JP cc,nn NC" {
+    var cpu = CPU{};
+    const opCode = 0xD2;
+
+    cpu.WriteMemory(0x0, opCode, 1);
+    cpu.WriteMemory(0x1, 0x0080, 2);
+    cpu.flags.carry = false;
+    cpu.Tick();
+
+    try expect(cpu.programCounter == 0x0080);
+
+    cpu.WriteMemory(0x0080, opCode, 1);
+    cpu.WriteMemory(0x0081, 0xDEAD, 2);
+    cpu.flags.carry = true;
+    cpu.Tick();
+    try expect(cpu.programCounter == 0x0081);
+}
+
+test "JUMP: JP cc,nn C" {
+    var cpu = CPU{};
+    const opCode = 0xDA;
+
+    cpu.WriteMemory(0x0, opCode, 1);
+    cpu.WriteMemory(0x1, 0x0080, 2);
+    cpu.flags.carry = true;
+    cpu.Tick();
+
+    try expect(cpu.programCounter == 0x0080);
+
+    cpu.WriteMemory(0x0080, opCode, 1);
+    cpu.WriteMemory(0x0081, 0xDEAD, 2);
+    cpu.flags.carry = false;
+    cpu.Tick();
+
+    try expect(cpu.programCounter == 0x0081);
+}
+
+test "JUMP: JP (HL)" {
+    var cpu = CPU{};
+
+    cpu.WriteMemory(0x0, 0xE9, 1);
+    cpu.WriteRegister(R.HL, 0xBEEF);
+    cpu.WriteMemory(0xBEEF, 0xDEAD, 2);
+    cpu.Tick();
+
+    try expect(cpu.programCounter == 0xDEAD);
+}
+
+test "JUMP: JR n" {
+    var cpu = CPU{};
+
+    cpu.WriteMemory(0x0, 0x18, 1);
+    cpu.WriteRegister(R.HL, 0xBEEF);
+    cpu.WriteMemory(0x1, 0x05, 1);
+    cpu.dump("1");
+    cpu.Tick();
+    cpu.dump("2");
+    try expect(cpu.programCounter == 0xBEF4);
 }

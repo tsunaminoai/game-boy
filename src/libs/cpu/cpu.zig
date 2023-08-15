@@ -3,7 +3,6 @@ const RegisterName = @import("types.zig").RegisterName;
 const Flags = @import("types.zig").Flags;
 const MOps = @import("types.zig").MathOperations;
 
-
 // todo: fix this before merging, its only 10x because of the dump() fn
 const MemorySize = 80000;
 const MemoryOffset: u16 = 0xFF00;
@@ -506,33 +505,37 @@ pub const CPU = struct {
                 self.WriteRegister(RegisterName.SP, self.add( self.ReadRegister(RegisterName.SP), self.ReadMemory(self.programCounter, 1),  1, false ));
             },
 
-            // JP
+            // JP nn
             0xC3 => { self.jump(self.programCounter); },
+            // JP cc,nn
             0xC2 => { if( self.flags.zero == false) { self.jump(self.programCounter); } },
-            0xCA => { if( self.flags.zero == true) { self.jump(self.programCounter); } },
+            0xCA => { if( self.flags.zero == true)  { self.jump(self.programCounter); } },
             0xD2 => { if( self.flags.carry == false) { self.jump(self.programCounter); } },
             0xDA => { if( self.flags.carry == true) { self.jump(self.programCounter); } },
             0xE9 => { self.jump(self.ReadRegister(RegisterName.HL)); },
 
-            // JR
-            0x18 => {
-
-            },
+            // JR n
+            0x18 => { self.AddAndJump(); },
+            0x20 => { if( self.flags.zero == false)  { self.AddAndJump(); } },
+            0x28 => { if( self.flags.zero == true)   { self.AddAndJump(); } },
+            0x30 => { if( self.flags.carry == false) { self.AddAndJump(); } },
+            0x38 => { if( self.flags.carry == true)  { self.AddAndJump(); } },
 
 
             // zig fmt: on
             else => undefined,
         }
     }
-    pub fn jumpR(self: *Self, address: u16) void {
-        _ = address;
-        const HL = self.ReadRegister(RegisterName.HL);
-        const n = self.ReadMemory(self.programCounter, 1);
-        self.WriteRegister(RegisterName.HL, add(HL, n, 2, false));
+    pub fn AddAndJump(self: *Self) void {
+        self.AddToHL(self.ReadMemory(self.programCounter, 1));
         self.jump(self.ReadRegister(RegisterName.HL));
     }
+    pub fn AddToHL(self: *Self, value: u16) void {
+        const HL = self.ReadRegister(RegisterName.HL);
+        self.WriteRegister(RegisterName.HL, self.add(HL, value, 2, false));
+    }
     pub fn jump(self: *Self, address: u16) void {
-        self.programCounter = self.ReadMemory( address, 2);
+        self.programCounter = self.ReadMemory(address, 2);
     }
     pub fn RegisterIncrement(self: *Self, register: RegisterName) void {
         self.registers[@intFromEnum(register)] +%= 0x1;
