@@ -574,8 +574,7 @@ test "JUMP: JR n" {
     cpu.WriteMemory(0x0, 0x18, 1);
     cpu.WriteRegister(R.HL, 0xBEEF);
     cpu.WriteMemory(0x1, 0x05, 1);
-    cpu.dump("1");
     cpu.Tick();
-    cpu.dump("2");
+
     try expect(cpu.programCounter == 0xBEF4);
 }

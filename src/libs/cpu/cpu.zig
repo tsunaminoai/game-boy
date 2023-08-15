@@ -521,13 +521,13 @@ pub const CPU = struct {
             },
 
             // JP nn
-            0xC3 => { self.jump(self.programCounter); },
+            0xC3 => { self.jump(self.ReadMemory(self.programCounter, 2)); },
             // JP cc,nn
-            0xC2 => { if( self.flags.zero == false) { self.jump(self.programCounter); } },
-            0xCA => { if( self.flags.zero == true)  { self.jump(self.programCounter); } },
-            0xD2 => { if( self.flags.carry == false) { self.jump(self.programCounter); } },
-            0xDA => { if( self.flags.carry == true) { self.jump(self.programCounter); } },
-            0xE9 => { self.jump(self.ReadRegister(RegisterName.HL)); },
+            0xC2 => { if( self.flags.zero == false) { self.jump(self.ReadMemory(self.programCounter, 2)); } },
+            0xCA => { if( self.flags.zero == true)  { self.jump(self.ReadMemory(self.programCounter, 2)); }  },
+            0xD2 => { if( self.flags.carry == false) { self.jump(self.ReadMemory(self.programCounter, 2)); }  },
+            0xDA => { if( self.flags.carry == true) { self.jump(self.ReadMemory(self.programCounter, 2)); }  },
+            0xE9 => { self.jump(self.ReadMemory(self.ReadRegister(RegisterName.HL), 2)); },
 
             // JR n
             0x18 => { self.AddAndJump(); },
@@ -550,7 +550,7 @@ pub const CPU = struct {
         self.WriteRegister(RegisterName.HL, self.add(HL, value, 2, false));
     }
     pub fn jump(self: *Self, address: u16) void {
-        self.programCounter = self.ReadMemory(address, 2);
+        self.programCounter = address;
     }
     pub fn RegisterIncrement(self: *Self, register: RegisterName) void {
         self.registers[@intFromEnum(register)] +%= 0x1;
