@@ -246,7 +246,7 @@ test "Test POP" {
     cpu.WriteRegister(R.BC, 0x0000);
 
     cpu.WriteMemory(0, 0xC1, 1);
-    cpu.WriteMemory(0xFFFC, 0xBEEF, 2);
+    cpu.WriteMemory(0xFFFE, 0xBEEF, 2);
 
     cpu.Tick();
 
@@ -607,4 +607,18 @@ test "RST n" {
     try expect(cpu.ReadRegister(R.SP) == 0xFFFC);
     try expect(cpu.memory[0xFFFF] == 0xBE);
     try expect(cpu.memory[0xFFFE] == 0xEF);
+}
+
+test "RET" {
+    var cpu = CPU{};
+
+    cpu.WriteMemory(0x0, 0xC9, 1);
+    cpu.WriteRegister(R.SP, 0xFFFC);
+    cpu.WriteMemory(0xFFFE, 0xBEEF, 2);
+    cpu.WriteRegister(R.HL, 0x0);
+    cpu.Tick();
+
+    try expect(cpu.programCounter == 0xBEEF);
+    try expect(cpu.ReadRegister(R.SP) == 0xFFFE);
+
 }
