@@ -29,6 +29,13 @@ pub const CPU = struct {
     const Self = @This();
     const Address = u16;
 
+    pub fn Run(self: *Self) void {
+        var steps: u64 = 0;
+        while (steps < 200 ) : (steps += 1) {
+            self.Tick();
+        }
+    }
+
     pub fn ReadRegister(self: *Self, register: RegisterName) u16 {
         return self.registers[@intFromEnum(register)];
     }
