@@ -28,7 +28,6 @@ test "Test that writing to an 8bit register writes to the 16bit meta-register" {
     cpu.WriteRegister(R.B, 0xBE);
     cpu.WriteRegister(R.L, 0xEF);
     cpu.WriteRegister(R.H, 0xBE);
-    cpu.dump("reg");
 
     try expect(cpu.ReadRegister(R.BC) == 0xBEEF);
     try expect(cpu.ReadRegister(R.HL) == 0xBEEF);

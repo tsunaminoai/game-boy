@@ -13,10 +13,10 @@ fn getMSB(value: u16) u8 {
 fn getLSB(value: u16) u8 {
     return @as(u8, @truncate(value & 0x00FF));
 }
-fn setMSB(val16: u16, val8: u16) u16 {
+fn setLSB(val16: u16, val8: u16) u16 {
     return (val8 << 8) | (val16);
 }
-fn setLSB(val16: u16, val8: u16) u16 {
+fn setMSB(val16: u16, val8: u16) u16 {
     return (val16) | (val8 & 0x00FF);
 }
 
@@ -46,13 +46,28 @@ pub const CPU = struct {
                 // set the register above
                 const combinedIndex = 8 + index / 2;
                 const currentValue = self.registers[combinedIndex];
-                self.registers[combinedIndex] = if (index % 2 == 0) setMSB(currentValue, value) else setLSB(currentValue, value);
+                self.registers[combinedIndex] = if (index % 2 == 0) setLSB(currentValue, value) else setMSB(currentValue, value);
             },
             // for 16 bit "combined" registers
-            8...11 => {
+            8 => {
                 // set the registers 8 and 7 spaces below
-                self.registers[index - 8] = getLSB(value);
-                self.registers[index - 7] = getMSB(value);
+                self.registers[0] = getLSB(value);
+                self.registers[1] = getMSB(value);
+            },
+            9 => {
+                // set the registers 8 and 7 spaces below
+                self.registers[2] = getLSB(value);
+                self.registers[3] = getMSB(value);
+            },
+            10 => {
+                // set the registers 8 and 7 spaces below
+                self.registers[4] = getLSB(value);
+                self.registers[5] = getMSB(value);
+            },
+            11 => {
+                // set the registers 8 and 7 spaces below
+                self.registers[6] = getLSB(value);
+                self.registers[7] = getMSB(value);
             },
             12 => {},
             else => {
