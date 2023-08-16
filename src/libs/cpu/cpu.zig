@@ -520,10 +520,32 @@ pub const CPU = struct {
             0xD0 => {  if( self.flags.carry == false) { self.StackPop(RegisterName.HL); self.jump(self.ReadRegister(RegisterName.HL)); } },
             0xD8 => { if( self.flags.carry == true) { self.StackPop(RegisterName.HL); self.jump(self.ReadRegister(RegisterName.HL)); } },
 
+            0xCB => {
+                self.incPC(1);
+                const operand = self.ReadMemory(self.programCounter, 1);
+                switch (operand) {
+                    0x10 ... 0x15 => {
+                        self.WriteRegister(@as(RegisterName, @enumFromInt(operand - 0x10)), self.ReadRegister(@as(RegisterName, @enumFromInt(operand - 0x10)))) ;
+                    },
+                    0x16 => {
+                        self.WriteMemory(self.ReadRegister(RegisterName.HL), self.RotateL(self.ReadMemory(self.ReadRegister(RegisterName.HL), 2)), 2);
+                    },
+                    0x17 => {
+                        self.WriteRegister(RegisterName.A, self.ReadRegister(RegisterName.A)) ;
+                    },
+                    else => undefined,
+                }
+            },
             // zig fmt: on
             else => undefined,
         }
     }
+    fn RotateL(self: *Self, value: u16) u16 {
+        const C: u16 = if (self.flags.carry) 1 else 0;
+        self.flags.carry = (value & 0x80) == 0x80;
+        return value * 2 + C;
+    }
+
     pub fn AddAndJump(self: *Self) void {
         self.AddToHL(self.ReadMemory(self.programCounter, 1));
         self.jump(self.ReadRegister(RegisterName.HL));
