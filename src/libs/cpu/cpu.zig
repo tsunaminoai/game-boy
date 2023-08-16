@@ -31,10 +31,14 @@ pub const CPU = struct {
     const Self = @This();
     const Address = u16;
 
-    pub fn Run(self: *Self) void {
-        while ((!self.halt) and (self.ticks < 5)) {
+    pub fn Run(self: *Self) !void {
+        while ((!self.halt)) {
+            if (self.ticks > 50 ) {
+                self.halt = true;
+                break;
+            }
             self.Tick();
-            std.debug.print("Tick {} Instruction {X}\n", .{self.ticks, self.currentIntruction});
+            std.debug.print("Tick {} Instruction {X}\n", .{ self.ticks, self.currentIntruction });
         }
     }
 
@@ -88,6 +92,7 @@ pub const CPU = struct {
 
     fn LoadRegister(self: *Self, register: RegisterName) void {
         self.WriteRegister(register, self.memory[self.programCounter]);
+        self.incPC(1);
     }
 
     fn LoadRegisterFromRegister(self: *Self, source: RegisterName, destination: RegisterName) void {
@@ -249,10 +254,14 @@ pub const CPU = struct {
         }
     }
 
+    fn incPC(self: *Self, by: u16) void {
+        self.programCounter += by;
+    }
+
     pub fn Tick(self: *Self) void {
         const opcode = self.memory[self.programCounter];
         self.currentIntruction = opcode;
-        self.programCounter += 1;
+        self.incPC(1);
         self.ticks += 1;
 
         switch (opcode) {
@@ -339,7 +348,7 @@ pub const CPU = struct {
 
             0x0A => { self.LoadRegisterFromAddressRegister(RegisterName.BC, RegisterName.A); },
             0x1A => { self.LoadRegisterFromAddressRegister(RegisterName.DE, RegisterName.A); },
-            0xFA => { self.WriteRegister(RegisterName.A, self.ReadMemory(self.ReadMemory(self.programCounter, 2), 1));},
+            0xFA => { self.WriteRegister(RegisterName.A, self.ReadMemory(self.ReadMemory(self.programCounter, 2), 1)); self.incPC(2); },
             0x3E => { self.LoadRegister( RegisterName.A ); },
 
             0x47 => { self.LoadRegisterFromRegister( RegisterName.A, RegisterName.B ); },
@@ -356,22 +365,22 @@ pub const CPU = struct {
             // LDD A,(HL)
             0x3A => {
                 self.LoadRegisterFromAddressRegister(RegisterName.HL, RegisterName.A);
-                self.RegisterDecrement(RegisterName.HL);
+                self.incPC(2); self.RegisterDecrement(RegisterName.HL);
             },
             // LDD (HL),A
             0x32 => {
                 self.WriteMemoryByteFromRegister(RegisterName.A, RegisterName.HL);
-                self.RegisterDecrement(RegisterName.HL);
+                self.incPC(2); self.RegisterDecrement(RegisterName.HL);
             },
             // LDI A,(HL)
             0x2A => {
                 self.LoadRegisterFromAddressRegister(RegisterName.HL, RegisterName.A);
-                self.RegisterIncrement(RegisterName.HL);
+                self.incPC(2); self.RegisterIncrement(RegisterName.HL);
             },
             // LDI (HL),A
             0x22 => {
                 self.WriteMemoryByteFromRegister(RegisterName.A, RegisterName.HL);
-                self.RegisterIncrement(RegisterName.HL);
+                self.incPC(2); self.RegisterIncrement(RegisterName.HL);
             },
 
             // Writes the value of a register to memory address defined in the program counter + $FF00
@@ -389,16 +398,17 @@ pub const CPU = struct {
             0xF0 => { self.WriteRegister(RegisterName.A, self.memory[self.memory[self.programCounter] + MemoryOffset]); },
 
             //16-bit loads
-            0x01 => { self.WriteRegister(RegisterName.BC, self.ReadMemory(self.programCounter, 2)); },
-            0x11 => { self.WriteRegister(RegisterName.DE, self.ReadMemory(self.programCounter, 2)); },
-            0x21 => { self.WriteRegister(RegisterName.HL, self.ReadMemory(self.programCounter, 2)); },
-            0x31 => { self.WriteRegister(RegisterName.SP, self.ReadMemory(self.programCounter, 2)); },
+            0x01 => { self.WriteRegister(RegisterName.BC, self.ReadMemory(self.programCounter, 2)); self.incPC(2); },
+            0x11 => { self.WriteRegister(RegisterName.DE, self.ReadMemory(self.programCounter, 2)); self.incPC(2); },
+            0x21 => { self.WriteRegister(RegisterName.HL, self.ReadMemory(self.programCounter, 2)); self.incPC(2); },
+            0x31 => { self.WriteRegister(RegisterName.SP, self.ReadMemory(self.programCounter, 2)); self.incPC(2); },
 
             0xF9 => { self.LoadRegisterFromRegister(RegisterName.HL, RegisterName.SP); },
 
             0xF8 => {
                 // get effective address
                 const eax = self.add(self.ReadRegister(RegisterName.SP), self.ReadMemory(self.programCounter,1), 2, false);
+                self.incPC(1);
                 self.WriteRegister(RegisterName.HL, self.ReadMemory(eax, 2));
             },
 
@@ -539,23 +549,24 @@ pub const CPU = struct {
            // ADD SP,n
            0xE8 => {
                 self.WriteRegister(RegisterName.SP, self.add( self.ReadRegister(RegisterName.SP), self.ReadMemory(self.programCounter, 1),  1, false ));
+                self.incPC(1);
             },
 
             // JP nn
             0xC3 => { self.jump(self.ReadMemory(self.programCounter, 2)); },
             // JP cc,nn
-            0xC2 => { if( self.flags.zero == false) { self.jump(self.ReadMemory(self.programCounter, 2)); } },
-            0xCA => { if( self.flags.zero == true)  { self.jump(self.ReadMemory(self.programCounter, 2)); }  },
-            0xD2 => { if( self.flags.carry == false) { self.jump(self.ReadMemory(self.programCounter, 2)); }  },
-            0xDA => { if( self.flags.carry == true) { self.jump(self.ReadMemory(self.programCounter, 2)); }  },
+            0xC2 => { if( self.flags.zero == false)  { self.jump(self.ReadMemory(self.programCounter, 2)); } else { self.incPC(2) ; } },
+            0xCA => { if( self.flags.zero == true)   { self.jump(self.ReadMemory(self.programCounter, 2)); } else { self.incPC(2) ; } },
+            0xD2 => { if( self.flags.carry == false) { self.jump(self.ReadMemory(self.programCounter, 2)); } else { self.incPC(2) ; } },
+            0xDA => { if( self.flags.carry == true)  { self.jump(self.ReadMemory(self.programCounter, 2)); } else { self.incPC(2) ; } },
             0xE9 => { self.jump(self.ReadMemory(self.ReadRegister(RegisterName.HL), 2)); },
 
             // JR n
             0x18 => { self.AddAndJump(); },
-            0x20 => { if( self.flags.zero == false)  { self.AddAndJump(); } },
-            0x28 => { if( self.flags.zero == true)   { self.AddAndJump(); } },
-            0x30 => { if( self.flags.carry == false) { self.AddAndJump(); } },
-            0x38 => { if( self.flags.carry == true)  { self.AddAndJump(); } },
+            0x20 => { if( self.flags.zero == false)  { self.AddAndJump(); } else { self.incPC(1); } },
+            0x28 => { if( self.flags.zero == true)   { self.AddAndJump(); } else { self.incPC(1); } },
+            0x30 => { if( self.flags.carry == false) { self.AddAndJump(); } else { self.incPC(1); } },
+            0x38 => { if( self.flags.carry == true)  { self.AddAndJump(); } else { self.incPC(1); } },
 
             // CALL nn
             0xCD => {

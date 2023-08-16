@@ -19,7 +19,7 @@ fn loadProgram(path: []const u8, cpu: *CPU) !void {
 pub fn main() !void {
     var cpu = CPU{};
     try loadProgram("rom.bin", &cpu);
-    cpu.Run();
+    try cpu.Run();
     cpu.dump("Final State");
 }
 
