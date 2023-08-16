@@ -33,7 +33,7 @@ pub const CPU = struct {
 
     pub fn Run(self: *Self) !void {
         while ((!self.halt)) {
-            if (self.ticks > 50) {
+            if (self.ticks > 36) {
                 self.halt = true;
                 break;
             }
@@ -521,8 +521,8 @@ pub const CPU = struct {
             0xD8 => { if( self.flags.carry == true) { self.StackPop(RegisterName.HL); self.jump(self.ReadRegister(RegisterName.HL)); } },
 
             0xCB => {
-                self.incPC(1);
                 const operand = self.ReadMemory(self.programCounter, 1);
+                self.incPC(1);
                 switch (operand) {
                     0x10 ... 0x15 => {
                         self.WriteRegister(@as(RegisterName, @enumFromInt(operand - 0x10)), self.ReadRegister(@as(RegisterName, @enumFromInt(operand - 0x10)))) ;
