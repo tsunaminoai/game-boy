@@ -33,7 +33,7 @@ pub const CPU = struct {
 
     pub fn Run(self: *Self) !void {
         while ((!self.halt)) {
-            if (self.ticks > 50 ) {
+            if (self.ticks > 50) {
                 self.halt = true;
                 break;
             }
@@ -49,44 +49,50 @@ pub const CPU = struct {
     // We're going to take advantage of the fact that there are 8 8bit registers and their
     // doubled up counterparts are esily mappable.
     pub fn WriteRegister(self: *Self, register: RegisterName, value: u16) void {
-        const index: u16 = @intFromEnum(register);
+        self.registers[@intFromEnum(register)] = value;
 
-        self.registers[index] = value;
-
-        switch (index) {
-            // the normal registers
-            0...7 => {
-                // set the register above
-                const combinedIndex = 8 + index / 2;
-                const currentValue = self.registers[combinedIndex];
-                self.registers[combinedIndex] = if (index % 2 == 0) setLSB(currentValue, value) else setMSB(currentValue, value);
+        switch (register) {
+            RegisterName.AF => {
+                self.registers[@intFromEnum(RegisterName.A)] = getLSB(value);
+                self.registers[@intFromEnum(RegisterName.F)] = getMSB(value);
             },
-            // for 16 bit "combined" registers
-            8 => {
-                // set the registers 8 and 7 spaces below
-                self.registers[0] = getLSB(value);
-                self.registers[1] = getMSB(value);
+            RegisterName.BC => {
+                self.registers[@intFromEnum(RegisterName.B)] = getLSB(value);
+                self.registers[@intFromEnum(RegisterName.C)] = getMSB(value);
             },
-            9 => {
-                // set the registers 8 and 7 spaces below
-                self.registers[2] = getLSB(value);
-                self.registers[3] = getMSB(value);
+            RegisterName.DE => {
+                self.registers[@intFromEnum(RegisterName.D)] = getLSB(value);
+                self.registers[@intFromEnum(RegisterName.E)] = getMSB(value);
             },
-            10 => {
-                // set the registers 8 and 7 spaces below
-                self.registers[4] = getLSB(value);
-                self.registers[5] = getMSB(value);
+            RegisterName.HL => {
+                self.registers[@intFromEnum(RegisterName.H)] = getLSB(value);
+                self.registers[@intFromEnum(RegisterName.L)] = getMSB(value);
             },
-            11 => {
-                // set the registers 8 and 7 spaces below
-                self.registers[6] = getLSB(value);
-                self.registers[7] = getMSB(value);
+            RegisterName.A => {
+                self.registers[@intFromEnum(RegisterName.AF)] = setLSB(self.ReadRegister(RegisterName.AF), value);
             },
-            12 => {},
-            else => {
-                std.debug.panic("index: {}, {}, {}\n\n\n", .{ index, register, @intFromEnum(register) });
-                unreachable;
+            RegisterName.F => {
+                self.registers[@intFromEnum(RegisterName.AF)] = setMSB(self.ReadRegister(RegisterName.AF), value);
             },
+            RegisterName.B => {
+                self.registers[@intFromEnum(RegisterName.BC)] = setLSB(self.ReadRegister(RegisterName.BC), value);
+            },
+            RegisterName.C => {
+                self.registers[@intFromEnum(RegisterName.BC)] = setMSB(self.ReadRegister(RegisterName.BC), value);
+            },
+            RegisterName.D => {
+                self.registers[@intFromEnum(RegisterName.DE)] = setLSB(self.ReadRegister(RegisterName.DE), value);
+            },
+            RegisterName.E => {
+                self.registers[@intFromEnum(RegisterName.DE)] = setMSB(self.ReadRegister(RegisterName.DE), value);
+            },
+            RegisterName.H => {
+                self.registers[@intFromEnum(RegisterName.HL)] = setLSB(self.ReadRegister(RegisterName.HL), value);
+            },
+            RegisterName.L => {
+                self.registers[@intFromEnum(RegisterName.HL)] = setMSB(self.ReadRegister(RegisterName.HL), value);
+            },
+            RegisterName.SP => {},
         }
     }
 
@@ -281,7 +287,6 @@ pub const CPU = struct {
             0x2E => { self.LoadRegister(RegisterName.L); },
 
             //LD r1,r2
-            0x7F => { self.LoadRegisterFromRegister(RegisterName.A,RegisterName.A); },
             0x78 => { self.LoadRegisterFromRegister(RegisterName.B,RegisterName.A); },
             0x79 => { self.LoadRegisterFromRegister(RegisterName.C,RegisterName.A); },
             0x7A => { self.LoadRegisterFromRegister(RegisterName.D,RegisterName.A); },
@@ -289,6 +294,7 @@ pub const CPU = struct {
             0x7C => { self.LoadRegisterFromRegister(RegisterName.H,RegisterName.A); },
             0x7D => { self.LoadRegisterFromRegister(RegisterName.L,RegisterName.A); },
             0x7E => { self.LoadRegisterFromAddressRegister(RegisterName.HL, RegisterName.A); },
+            0x7F => { self.LoadRegisterFromRegister(RegisterName.A,RegisterName.A); },
 
             0x40 => { self.LoadRegisterFromRegister(RegisterName.B, RegisterName.B); },
             0x41 => { self.LoadRegisterFromRegister(RegisterName.C, RegisterName.B); },
@@ -666,7 +672,7 @@ pub const CPU = struct {
             }
             std.debug.print("{X} ", .{self.memory[x - 1]});
         }
-        self.dumpStack();
+        //self.dumpStack();
         std.debug.print("\n====  {s}  ====\n", .{msg});
     }
 };
