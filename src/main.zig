@@ -42,7 +42,7 @@ pub fn main() anyerror!void {
                 cpu.Tick();
             }
         }
-        if (rl.isKeyDown(rl.KeyboardKey.key_s)) {
+        if (rl.isKeyPressed(rl.KeyboardKey.key_s)) {
             state.running = !state.running;
         }
         //----------------------------------------------------------------------------------
