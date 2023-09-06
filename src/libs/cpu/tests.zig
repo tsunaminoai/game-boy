@@ -500,7 +500,7 @@ test "JUMP: JP cc,nn NZ" {
     cpu.WriteMemory(0x0081, 0xDEAD, 2);
     cpu.flags.zero = true;
     cpu.Tick();
-    try expect(cpu.programCounter == 0x0081);
+    try expect(cpu.programCounter == 0x0083);
 }
 
 test "JUMP: JP cc,nn Z" {
@@ -518,7 +518,7 @@ test "JUMP: JP cc,nn Z" {
     cpu.WriteMemory(0x0081, 0xDEAD, 2);
     cpu.flags.zero = false;
     cpu.Tick();
-    try expect(cpu.programCounter == 0x0081);
+    try expect(cpu.programCounter == 0x0083);
 }
 
 test "JUMP: JP cc,nn NC" {
@@ -536,7 +536,7 @@ test "JUMP: JP cc,nn NC" {
     cpu.WriteMemory(0x0081, 0xDEAD, 2);
     cpu.flags.carry = true;
     cpu.Tick();
-    try expect(cpu.programCounter == 0x0081);
+    try expect(cpu.programCounter == 0x0083);
 }
 
 test "JUMP: JP cc,nn C" {
@@ -555,7 +555,7 @@ test "JUMP: JP cc,nn C" {
     cpu.flags.carry = false;
     cpu.Tick();
 
-    try expect(cpu.programCounter == 0x0081);
+    try expect(cpu.programCounter == 0x0083);
 }
 
 test "JUMP: JP (HL)" {
