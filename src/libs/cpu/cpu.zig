@@ -1,5 +1,5 @@
 const std = @import("std");
-const RegisterName = @import("types.zig").RegisterName;
+pub const RegisterName = @import("types.zig").RegisterName;
 const Flags = @import("types.zig").Flags;
 const MOps = @import("types.zig").MathOperations;
 

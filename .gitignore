@@ -1,6 +1,7 @@
 # Zig specific
 zig-cache/
 zig-out/
+raylib-zig/
 
 *.bin
 
