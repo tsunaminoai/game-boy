@@ -8,7 +8,7 @@ const rlm = @import("raylib-math");
 
 const State = struct {
     running: bool,
-    clockrate_hz: u8,
+    clockrate_hz: i32,
 };
 
 var FONT: rl.Font = undefined;
@@ -41,7 +41,9 @@ pub fn main() anyerror!void {
     while (!rl.windowShouldClose()) { // Detect window close button or ESC key
         // Update
         //----------------------------------------------------------------------------------
-        if (@mod(frameCounter, targetFPS) == 0) {
+        var tickCheck = @divFloor(targetFPS,state.clockrate_hz);
+        if (tickCheck == 0 ) tickCheck = 1;
+        if (@mod(frameCounter, tickCheck ) == 0) {
             if (state.running) {
                 cpu.Tick();
             }
@@ -49,6 +51,15 @@ pub fn main() anyerror!void {
         if (rl.isKeyPressed(rl.KeyboardKey.key_s)) {
             state.running = !state.running;
         }
+        if (rl.isKeyPressed(rl.KeyboardKey.key_up)) {
+            state.clockrate_hz *= 2;
+        }
+        if (rl.isKeyPressed(rl.KeyboardKey.key_down)) {
+            state.clockrate_hz = @divFloor(state.clockrate_hz, 2);
+            if ( state.clockrate_hz == 0 ) state.clockrate_hz = 1;
+
+        }
+
 
         //----------------------------------------------------------------------------------
 
@@ -149,7 +160,7 @@ fn drawCPU(cpu: *CPU, position: rl.Vector2) void {
     currentWritingPosition.y += 30;
     const m1 = drawMemory(cpu, currentWritingPosition, 0x0000, 0x0FFF, 128, 5, rl.Color.magenta);
     currentWritingPosition.y += m1.height + 30;
-    const m2 = drawMemory(cpu, currentWritingPosition, 0x8000, 0x8FFF, 128, 5, rl.Color.lime);
+    const m2 = drawMemory(cpu, currentWritingPosition, 0x8000, 0x9FFF, 16, 5, rl.Color.lime);
     currentWritingPosition.y += m2.height + 30;
 }
 
@@ -174,7 +185,7 @@ fn drawMemory(cpu: *CPU, position: rl.Vector2, start: u16, end: u16, perRow: u16
     var block = rl.Rectangle.init(position.x, position.y, sizePerBlock, sizePerBlock);
     const len = end - start;
 
-    for (0..len) |i| {
+    for (0 .. len) |i| {
         const addr = i + start;
         const val: u8 = @as(u8, @intCast(cpu.ReadMemory(@as(u16, @intCast(addr)), 1)));
         tint = rl.colorTint(rl.Color.init(val, val, val, 255), color);
@@ -191,6 +202,13 @@ fn drawMemory(cpu: *CPU, position: rl.Vector2, start: u16, end: u16, perRow: u16
     }
 
     return rl.Rectangle.init(position.x, position.y, sizePerRow * sizePerBlock, @as(f32, @floatFromInt(@mod(len, perRow))) + 1.0);
+}
+
+/// Draws the sprite at index in VRAM to the screen at position
+fn drawSprite(cpu: *CPU, position: rl.Vector2, index: usize) void {
+    _ = cpu;
+    _ = position;
+    _ = index;
 }
 
 test {
