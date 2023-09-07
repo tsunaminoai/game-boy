@@ -132,6 +132,8 @@ fn drawCPU(cpu: *CPU, position: rl.Vector2) void {
     currentWritingPosition.y += fontHeight;
     rl.drawTextEx(FONT, rl.textFormat("PC: %02x", .{cpu.programCounter}), currentWritingPosition, fontHeight, 2, rl.Color.sky_blue);
     currentWritingPosition.y += fontHeight;
+    rl.drawTextEx(FONT, rl.textFormat("Ins: %02x", .{cpu.currentIntruction}), currentWritingPosition, fontHeight, 2, rl.Color.sky_blue);
+    currentWritingPosition.y += fontHeight;
 
     //draw registers
     inline for (@typeInfo(R).Enum.fields) |f| {
@@ -143,6 +145,9 @@ fn drawCPU(cpu: *CPU, position: rl.Vector2) void {
     currentWritingPosition = position;
     currentWritingPosition.x += 100;
     drawFlags(cpu, currentWritingPosition);
+
+    currentWritingPosition.y += 30;
+    _ = drawMemory(cpu, currentWritingPosition, 0x8000, 0x8FFF, 128, 5);
 }
 
 fn loadProgram(path: []const u8, cpu: *CPU) !void {
@@ -157,6 +162,29 @@ fn loadProgram(path: []const u8, cpu: *CPU) !void {
     while (i < data.len) : (i += 1) {
         cpu.WriteMemory(i, @as(u16, data[i]), 1);
     }
+}
+
+fn drawMemory(cpu: *CPU, position: rl.Vector2, start: u16, end: u16, perRow: u16, size: u16) rl.Rectangle {
+    var color: rl.Color = undefined;
+    const sizePerBlock: f32 = @as(f32, @floatFromInt(size));
+    const sizePerRow: f32 = @as(f32, @floatFromInt(perRow));
+    var block = rl.Rectangle.init(position.x, position.y, sizePerBlock, sizePerBlock);
+
+    for (start..end) |i| {
+        const val: u8 = @as(u8, @intCast(cpu.ReadMemory(@as(u16, @intCast(i)), 1)));
+        color = rl.Color.init(val, val, val, 255);
+        if (cpu.programCounter == i) {
+            color = rl.Color.green;
+        }
+        rl.drawRectangleRec(block, color);
+        block.x += sizePerBlock;
+        if (@mod(i, perRow) == 0) {
+            block.x = position.x;
+            block.y += sizePerBlock;
+        }
+    }
+
+    return rl.Rectangle.init(position.x, position.y, sizePerRow * sizePerBlock, block.y * sizePerBlock);
 }
 
 test {
