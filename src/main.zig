@@ -11,6 +11,8 @@ const State = struct {
     clockrate_hz: u8,
 };
 
+var FONT: rl.Font = undefined;
+
 pub fn main() anyerror!void {
     // Initialization
     //--------------------------------------------------------------------------------------
@@ -25,6 +27,8 @@ pub fn main() anyerror!void {
 
     rl.initWindow(screenWidth, screenHeight, "raylib-zig [core] example - basic window");
     defer rl.closeWindow(); // Close window and OpenGL context
+
+    FONT = rl.loadFont("./assets/fonts/FreeSans.ttf");
 
     var cpu = CPU{};
     try loadProgram("rom.bin", &cpu);
@@ -53,7 +57,7 @@ pub fn main() anyerror!void {
         defer rl.endDrawing();
 
         rl.clearBackground(rl.Color.white);
-        rl.drawText(rl.textFormat("Running: %04d", .{state.running}), 10, 0, 20, rl.Color.sky_blue);
+        rl.drawTextEx(FONT, rl.textFormat("Running: %04d", .{state.running}), rl.Vector2.init(10, 10), 20, 2, rl.Color.sky_blue);
 
         drawCPU(&cpu, rl.Vector2.init(10, 10));
         frameCounter += 1;
@@ -78,29 +82,42 @@ fn drawRegister(cpu: *CPU, register: R, position: rl.Vector2) rl.Vector2 {
     rl.drawRectangleLinesEx(rl.Rectangle.init(position.x, position.y, width, height), 2, color);
 
     // draw label
-    rl.drawTextEx(rl.getFontDefault(), rl.textFormat("%s", .{regStr}), labelOffset, 12, 2, color);
+    rl.drawTextEx(FONT, rl.textFormat("%s", .{regStr}), labelOffset, 12, 2, color);
 
     // draw value
-    rl.drawTextEx(rl.getFontDefault(), rl.textFormat("%02x", .{value}), valueOffset, 14, 2, rl.Color.violet);
+    rl.drawTextEx(FONT, rl.textFormat("%02x", .{value}), valueOffset, 16, 2, rl.Color.violet);
 
     // return how much space we took up
     return rl.Vector2.init(width, height);
 }
 
+fn drawStack(cpu: *CPU, position: rl.Vector2) void {
+    var stackPtrOffset: u16 = 0xFFFE;
+    const SP = cpu.ReadRegister(R.SP);
+    var labelOffset = position;
+    const fontSize = 16;
+    for (SP..stackPtrOffset) |i| {
+        rl.drawTextEx(FONT, rl.textFormat("%04x: %04x", .{ stackPtrOffset - i, cpu.ReadMemory(@as(u16, @intCast(i)), 2) }), labelOffset, fontSize, 2, rl.Color.sky_blue);
+
+        labelOffset.y += fontSize;
+    }
+}
+
 fn drawCPU(cpu: *CPU, position: rl.Vector2) void {
-    const fontHeight = 15;
-    const font = rl.getFontDefault();
+    const fontHeight = 16;
     var currentWritingPosition = position;
 
     currentWritingPosition.y += fontHeight;
-    rl.drawTextEx(font, rl.textFormat("PC: %02x", .{cpu.programCounter}), currentWritingPosition, fontHeight, 2, rl.Color.sky_blue);
+    rl.drawTextEx(FONT, rl.textFormat("PC: %02x", .{cpu.programCounter}), currentWritingPosition, fontHeight, 2, rl.Color.sky_blue);
     currentWritingPosition.y += fontHeight;
 
     //draw registers
     inline for (@typeInfo(R).Enum.fields) |f| {
         var tmp = drawRegister(cpu, @as(R, @enumFromInt(f.value)), currentWritingPosition);
-        currentWritingPosition.y += tmp.y;
+        currentWritingPosition.y += tmp.y + 5;
     }
+
+    drawStack(cpu, currentWritingPosition);
 }
 
 fn loadProgram(path: []const u8, cpu: *CPU) !void {
