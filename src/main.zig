@@ -41,14 +41,15 @@ pub fn main() anyerror!void {
     while (!rl.windowShouldClose()) { // Detect window close button or ESC key
         // Update
         //----------------------------------------------------------------------------------
-        if (state.running) {
-            if (@mod(frameCounter, targetFPS) == 0) {
+        if (@mod(frameCounter, targetFPS) == 0) {
+            if (state.running) {
                 cpu.Tick();
             }
         }
         if (rl.isKeyPressed(rl.KeyboardKey.key_s)) {
             state.running = !state.running;
         }
+
         //----------------------------------------------------------------------------------
 
         // Draw
@@ -57,9 +58,9 @@ pub fn main() anyerror!void {
         defer rl.endDrawing();
 
         rl.clearBackground(rl.Color.white);
-        rl.drawTextEx(FONT, rl.textFormat("Running: %04d", .{state.running}), rl.Vector2.init(10, 10), 20, 2, rl.Color.sky_blue);
+        rl.drawTextEx(FONT, rl.textFormat("Running: %d at %d Hz", .{ state.running, state.clockrate_hz }), rl.Vector2.init(10, 10), 20, 2, rl.Color.sky_blue);
 
-        drawCPU(&cpu, rl.Vector2.init(10, 10));
+        drawCPU(&cpu, rl.Vector2.init(10, 50));
         frameCounter += 1;
     }
     //----------------------------------------------------------------------------------
@@ -70,7 +71,7 @@ const R = @import("libs/cpu/types.zig").RegisterName;
 
 fn drawRegister(cpu: *CPU, register: R, position: rl.Vector2) rl.Vector2 {
     const height: i32 = 30;
-    const width: i32 = 50;
+    const width: i32 = 80;
     const color = rl.Color.maroon;
     const labelOffset = rlm.vector2Add(position, rlm.vector2Scale(rlm.vector2One(), 3));
     const valueOffset = rlm.vector2Add(position, rl.Vector2.init(25, 5));
@@ -91,6 +92,26 @@ fn drawRegister(cpu: *CPU, register: R, position: rl.Vector2) rl.Vector2 {
     return rl.Vector2.init(width, height);
 }
 
+fn drawFlags(cpu: *CPU, position: rl.Vector2) void {
+    const height: i32 = 30;
+    const width: i32 = 100;
+    var labelOffset = rlm.vector2Add(rl.Vector2.init(5, 5), position);
+    const fontSize = 18;
+    const colorFalse = rl.Color.black;
+    const colorTrue = rl.Color.green;
+    const spacingAddition: f32 = @floatFromInt(rl.measureText("W ", fontSize));
+
+    rl.drawRectangleLinesEx(rl.Rectangle.init(position.x, position.y, width, height), 2, rl.Color.black);
+    rl.drawTextEx(FONT, "Z ", labelOffset, fontSize, 2, (if (cpu.flags.zero) colorTrue else colorFalse));
+    labelOffset.x += spacingAddition;
+    rl.drawTextEx(FONT, "S ", labelOffset, fontSize, 2, (if (cpu.flags.subtraction) colorTrue else colorFalse));
+    labelOffset.x += spacingAddition;
+    rl.drawTextEx(FONT, "H ", labelOffset, fontSize, 2, (if (cpu.flags.carry) colorTrue else colorFalse));
+    labelOffset.x += spacingAddition;
+    rl.drawTextEx(FONT, "C ", labelOffset, fontSize, 2, (if (cpu.flags.halfCarry) colorTrue else colorFalse));
+    labelOffset.x += spacingAddition;
+}
+
 fn drawStack(cpu: *CPU, position: rl.Vector2) void {
     var stackPtrOffset: u16 = 0xFFFE;
     const SP = cpu.ReadRegister(R.SP);
@@ -107,6 +128,7 @@ fn drawCPU(cpu: *CPU, position: rl.Vector2) void {
     const fontHeight = 16;
     var currentWritingPosition = position;
 
+    rl.drawTextEx(FONT, rl.textFormat("Ticks: %02d", .{cpu.ticks}), currentWritingPosition, fontHeight, 2, rl.Color.sky_blue);
     currentWritingPosition.y += fontHeight;
     rl.drawTextEx(FONT, rl.textFormat("PC: %02x", .{cpu.programCounter}), currentWritingPosition, fontHeight, 2, rl.Color.sky_blue);
     currentWritingPosition.y += fontHeight;
@@ -118,6 +140,9 @@ fn drawCPU(cpu: *CPU, position: rl.Vector2) void {
     }
 
     drawStack(cpu, currentWritingPosition);
+    currentWritingPosition = position;
+    currentWritingPosition.x += 100;
+    drawFlags(cpu, currentWritingPosition);
 }
 
 fn loadProgram(path: []const u8, cpu: *CPU) !void {
