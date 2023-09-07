@@ -147,7 +147,10 @@ fn drawCPU(cpu: *CPU, position: rl.Vector2) void {
     drawFlags(cpu, currentWritingPosition);
 
     currentWritingPosition.y += 30;
-    _ = drawMemory(cpu, currentWritingPosition, 0x8000, 0x8FFF, 128, 5);
+    const m1 = drawMemory(cpu, currentWritingPosition, 0x0000, 0x0FFF, 128, 5, rl.Color.magenta);
+    currentWritingPosition.y += m1.height + 30;
+    const m2 = drawMemory(cpu, currentWritingPosition, 0x8000, 0x8FFF, 128, 5, rl.Color.lime);
+    currentWritingPosition.y += m2.height + 30;
 }
 
 fn loadProgram(path: []const u8, cpu: *CPU) !void {
@@ -164,27 +167,30 @@ fn loadProgram(path: []const u8, cpu: *CPU) !void {
     }
 }
 
-fn drawMemory(cpu: *CPU, position: rl.Vector2, start: u16, end: u16, perRow: u16, size: u16) rl.Rectangle {
-    var color: rl.Color = undefined;
+fn drawMemory(cpu: *CPU, position: rl.Vector2, start: u16, end: u16, perRow: u16, size: u16, color: rl.Color) rl.Rectangle {
+    var tint: rl.Color = undefined;
     const sizePerBlock: f32 = @as(f32, @floatFromInt(size));
     const sizePerRow: f32 = @as(f32, @floatFromInt(perRow));
     var block = rl.Rectangle.init(position.x, position.y, sizePerBlock, sizePerBlock);
+    const len = end - start;
 
-    for (start..end) |i| {
-        const val: u8 = @as(u8, @intCast(cpu.ReadMemory(@as(u16, @intCast(i)), 1)));
-        color = rl.Color.init(val, val, val, 255);
-        if (cpu.programCounter == i) {
-            color = rl.Color.green;
+    for (0..len) |i| {
+        const addr = i + start;
+        const val: u8 = @as(u8, @intCast(cpu.ReadMemory(@as(u16, @intCast(addr)), 1)));
+        tint = rl.colorTint(rl.Color.init(val, val, val, 255), color);
+        if (cpu.programCounter == addr) {
+            tint = rl.Color.green;
         }
-        rl.drawRectangleRec(block, color);
+        //todo: figure out why theres a block on the end of the first row
+        rl.drawRectangleRec(block, tint);
         block.x += sizePerBlock;
-        if (@mod(i, perRow) == 0) {
+        if (i != 0 and @mod(i, perRow) == 0) {
             block.x = position.x;
             block.y += sizePerBlock;
         }
     }
 
-    return rl.Rectangle.init(position.x, position.y, sizePerRow * sizePerBlock, block.y * sizePerBlock);
+    return rl.Rectangle.init(position.x, position.y, sizePerRow * sizePerBlock, @as(f32, @floatFromInt(@mod(len, perRow))) + 1.0);
 }
 
 test {
