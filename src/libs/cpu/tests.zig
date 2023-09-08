@@ -1,7 +1,7 @@
 const std = @import("std");
 const expect = @import("std").testing.expect;
 
-const CPU = @import("cpu.zig").CPU;
+const CPU = @import("cpu.zig");
 const R = @import("types.zig").RegisterName;
 const Flags = @import("types.zig").Flags;
 
@@ -471,9 +471,19 @@ test "ALU: CP" {
 test "Misc: SWAP" {
     var cpu = CPU{};
 
-    const result = cpu.swap(0xEB);
-
-    try expect(result == 0xBE);
+    cpu.WriteMemory(0x0, 0x33, 1);
+    cpu.flags.carry = true;
+    cpu.WriteRegister(R.A, 0xEB);
+    cpu.WriteRegister(R.B, 0xEB);
+    cpu.WriteRegister(R.C, 0xEB);
+    cpu.WriteRegister(R.D, 0xEB);
+    cpu.WriteRegister(R.E, 0xEB);
+    cpu.WriteRegister(R.F, 0xEB);
+    cpu.WriteRegister(R.H, 0xEB);
+    cpu.WriteRegister(R.L, 0xEB);
+    cpu.Tick();
+    cpu.dump("");
+    try expect(cpu.ReadRegister(R.E) == 0xBE);
 }
 
 test "JUMP: JP" {
@@ -620,5 +630,4 @@ test "RET" {
 
     try expect(cpu.programCounter == 0xBEEF);
     try expect(cpu.ReadRegister(R.SP) == 0xFFFE);
-
 }
