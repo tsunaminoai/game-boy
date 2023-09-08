@@ -300,16 +300,16 @@ pub const CPU = struct {
             0x50 ... 0x55 => { self.LoadRegisterFromRegister(@as(RegisterName,@enumFromInt(opcode - 0x50)), RegisterName.D); },
             0x56 => { self.LoadRegisterFromAddressRegister(RegisterName.HL, RegisterName.D); },
 
-            0x58 ... 0x5D => { self.LoadRegisterFromRegister(@as(RegisterName,@enumFromInt(opcode - 0x78)), RegisterName.E); },
+            0x58 ... 0x5D => { self.LoadRegisterFromRegister(@as(RegisterName,@enumFromInt(opcode - 0x58)), RegisterName.E); },
             0x5E => { self.LoadRegisterFromAddressRegister(RegisterName.HL, RegisterName.E); },
 
-            0x60 ... 0x65 => { self.LoadRegisterFromRegister(@as(RegisterName,@enumFromInt(opcode - 0x78)), RegisterName.H); },
+            0x60 ... 0x65 => { self.LoadRegisterFromRegister(@as(RegisterName,@enumFromInt(opcode - 0x60)), RegisterName.H); },
             0x66 => { self.LoadRegisterFromAddressRegister(RegisterName.HL, RegisterName.H); },
 
-            0x68 ... 0x6D => { self.LoadRegisterFromRegister(@as(RegisterName,@enumFromInt(opcode - 0x78)), RegisterName.L); },
+            0x68 ... 0x6D => { self.LoadRegisterFromRegister(@as(RegisterName,@enumFromInt(opcode - 0x68)), RegisterName.L); },
             0x6E => { self.LoadRegisterFromAddressRegister(RegisterName.HL, RegisterName.L); },
 
-            0x70 ... 0x75 => { self.WriteMemoryByteFromRegister(@as(RegisterName,@enumFromInt(opcode - 0x78)), RegisterName.HL); },
+            0x70 ... 0x75 => { self.WriteMemoryByteFromRegister(@as(RegisterName,@enumFromInt(opcode - 0x70)), RegisterName.HL); },
             0x36 => { self.LoadRegister( RegisterName.HL); },
 
             0x0A => { self.LoadRegisterFromAddressRegister(RegisterName.BC, RegisterName.A); },
