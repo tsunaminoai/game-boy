@@ -263,8 +263,9 @@ pub fn Tick(self: *Self) void {
     self.incPC(1);
     self.ticks += 1;
 
-    switch (opcode) {
-        // zig fmt: off
+    if (!self.flags.carry) {
+        switch (opcode) {
+            // zig fmt: off
         //NOPE!
         0x00 => {},
 
@@ -512,29 +513,38 @@ pub fn Tick(self: *Self) void {
         0xD0 => {  if( self.flags.carry == false) { self.StackPop(RegisterName.HL); self.jump(self.ReadRegister(RegisterName.HL)); } },
         0xD8 => { if( self.flags.carry == true) { self.StackPop(RegisterName.HL); self.jump(self.ReadRegister(RegisterName.HL)); } },
 
-
-        // 0x10 ... 0x15 => {
-        //     self.WriteRegister(@as(RegisterName, @enumFromInt(opcode - 0x10)), self.ReadRegister(@as(RegisterName, @enumFromInt(opcode - 0x10)))) ;
-        // },
-        // 0x16 => {
-        //     self.WriteMemory(self.ReadRegister(RegisterName.HL), self.RotateL(self.ReadMemory(self.ReadRegister(RegisterName.HL), 1)), 1);
-        // },
-        // 0x17 => {
-        //     self.WriteRegister(RegisterName.A, self.ReadRegister(RegisterName.A)) ;
-        // },
-        // 0x30 ... 0x35 => {
-        //     std.debug.print("{}\n", .{@as(RegisterName, @enumFromInt(opcode - 0x10))});
-        //     self.WriteRegister(@as(RegisterName, @enumFromInt(opcode - 0x10)), self.swap(self.ReadRegister(@as(RegisterName, @enumFromInt(opcode - 0x10))))) ;
-        // },
-        // 0x36 => {
-        //     self.WriteMemory(self.ReadRegister(RegisterName.HL), self.swap(self.ReadMemory(self.ReadRegister(RegisterName.HL), 1)), 1);
-        // },
-        // 0x37 => {
-        //     self.WriteRegister(RegisterName.A, self.swap(self.ReadRegister(RegisterName.A))) ;
-        // },
-
         // zig fmt: on
-        else => undefined,
+            else => {
+                std.debug.panic("OPCODE {x} NOT IMPLEMENTED", .{opcode});
+                unreachable;
+            },
+        }
+    } else {
+        switch (opcode) {
+            0x10...0x15 => {
+                self.WriteRegister(@as(RegisterName, @enumFromInt(opcode - 0x10)), self.ReadRegister(@as(RegisterName, @enumFromInt(opcode - 0x10))));
+            },
+            0x16 => {
+                self.WriteMemory(self.ReadRegister(RegisterName.HL), self.RotateL(self.ReadMemory(self.ReadRegister(RegisterName.HL), 1)), 1);
+            },
+            0x17 => {
+                self.WriteRegister(RegisterName.A, self.ReadRegister(RegisterName.A));
+            },
+            0x30...0x35 => {
+                std.debug.print("{}\n", .{@as(RegisterName, @enumFromInt(opcode - 0x10))});
+                self.WriteRegister(@as(RegisterName, @enumFromInt(opcode - 0x10)), self.swap(self.ReadRegister(@as(RegisterName, @enumFromInt(opcode - 0x10)))));
+            },
+            0x36 => {
+                self.WriteMemory(self.ReadRegister(RegisterName.HL), self.swap(self.ReadMemory(self.ReadRegister(RegisterName.HL), 1)), 1);
+            },
+            0x37 => {
+                self.WriteRegister(RegisterName.A, self.swap(self.ReadRegister(RegisterName.A)));
+            },
+            else => {
+                std.debug.panic("OPCODE {x} NOT IMPLEMENTED", .{opcode});
+                unreachable;
+            },
+        }
     }
 }
 fn RotateL(self: *Self, value: u16) u16 {
