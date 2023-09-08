@@ -25,7 +25,7 @@ pub fn main() anyerror!void {
         .clockrate_hz = 1,
     };
 
-    rl.initWindow(screenWidth, screenHeight, "raylib-zig [core] example - basic window");
+    rl.initWindow(screenWidth, screenHeight, "[!yabai] Zig GameBoy Debugger");
     defer rl.closeWindow(); // Close window and OpenGL context
 
     FONT = rl.loadFont("./assets/fonts/FreeSans.ttf");
@@ -161,7 +161,7 @@ fn drawCPU(cpu: *CPU, position: rl.Vector2) ! void {
     currentWritingPosition.y += 30;
     const m1 = drawMemory(cpu, currentWritingPosition, 0x0000, 0x0FFF, 128, 5, rl.Color.magenta);
     currentWritingPosition.y += m1.height + 30;
-    const m2 = drawMemory(cpu, currentWritingPosition, 0x8000, 0x9FFF, 16, 5, rl.Color.lime);
+    const m2 = drawMemory(cpu, currentWritingPosition, 0x8000, 0x9FFF, 128, 5, rl.Color.lime);
     _ = m2;
     currentWritingPosition = rlm.vector2Add(position, rl.Vector2.init(800,30));
     try drawSprite(cpu, currentWritingPosition, 0);
