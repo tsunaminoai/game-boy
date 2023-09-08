@@ -32,6 +32,7 @@ pub fn main() anyerror!void {
 
     var cpu = CPU{};
     try loadProgram("rom.bin", &cpu);
+    //cpu.Initalize();
 
     rl.setTargetFPS(targetFPS); // Set our game to run at 60 frames-per-second
     var frameCounter: i32 = 0;
@@ -48,7 +49,7 @@ pub fn main() anyerror!void {
                 cpu.Tick();
             }
         }
-        if (rl.isKeyPressed(rl.KeyboardKey.key_s)) {
+        if (rl.isKeyPressed(rl.KeyboardKey.key_space)) {
             state.running = !state.running;
         }
         if (rl.isKeyPressed(rl.KeyboardKey.key_up)) {
@@ -71,7 +72,7 @@ pub fn main() anyerror!void {
         rl.clearBackground(rl.Color.white);
         rl.drawTextEx(FONT, rl.textFormat("Running: %d at %d Hz", .{ state.running, state.clockrate_hz }), rl.Vector2.init(10, 10), 20, 2, rl.Color.sky_blue);
 
-        drawCPU(&cpu, rl.Vector2.init(10, 50));
+        try drawCPU(&cpu, rl.Vector2.init(10, 50));
         frameCounter += 1;
     }
     //----------------------------------------------------------------------------------
@@ -135,7 +136,7 @@ fn drawStack(cpu: *CPU, position: rl.Vector2) void {
     }
 }
 
-fn drawCPU(cpu: *CPU, position: rl.Vector2) void {
+fn drawCPU(cpu: *CPU, position: rl.Vector2) ! void {
     const fontHeight = 16;
     var currentWritingPosition = position;
 
@@ -161,7 +162,9 @@ fn drawCPU(cpu: *CPU, position: rl.Vector2) void {
     const m1 = drawMemory(cpu, currentWritingPosition, 0x0000, 0x0FFF, 128, 5, rl.Color.magenta);
     currentWritingPosition.y += m1.height + 30;
     const m2 = drawMemory(cpu, currentWritingPosition, 0x8000, 0x9FFF, 16, 5, rl.Color.lime);
-    currentWritingPosition.y += m2.height + 30;
+    _ = m2;
+    currentWritingPosition = rlm.vector2Add(position, rl.Vector2.init(800,30));
+    try drawSprite(cpu, currentWritingPosition, 0);
 }
 
 fn loadProgram(path: []const u8, cpu: *CPU) !void {
@@ -205,10 +208,40 @@ fn drawMemory(cpu: *CPU, position: rl.Vector2, start: u16, end: u16, perRow: u16
 }
 
 /// Draws the sprite at index in VRAM to the screen at position
-fn drawSprite(cpu: *CPU, position: rl.Vector2, index: usize) void {
-    _ = cpu;
-    _ = position;
-    _ = index;
+fn drawSprite(cpu: *CPU, position: rl.Vector2, index: usize) !void {
+    var drawingPosition = position;
+    var sprite = try std.BoundedArray(u16, 8).init(0);
+    var addr: u16 = 0;
+    const blockSize = 5;
+    var tint: rl.Color = undefined;
+
+    for (0 .. 8) |i| {
+        addr  = @as(u16,@intCast(0x8000 + (index*16) + i));
+        try sprite.append(cpu.ReadMemory(addr, 2));
+    }
+
+    var block = rl.Rectangle.init(drawingPosition.x, drawingPosition.y, blockSize, blockSize);
+
+    for (0 .. 8) |i| {
+        var testMask: u16 = 0xC000;
+        for (0..8) |j| {
+            const val = (sprite.get(i) | testMask ) >> @as(u4, @intCast(2*j));
+            switch(val){
+                0b00 => { tint = rl.Color.gray; },
+                0b01 => { tint = rl.Color.dark_gray; },
+                0b10 => { tint = rl.Color.yellow; },
+                0b11 => { tint = rl.Color.black; },
+                else => undefined,
+            }
+
+            rl.drawRectangleRec(block, tint);
+            testMask = testMask >> 2;
+            std.debug.print("{x}\n", .{testMask});
+            block.x += blockSize;
+        }
+        block.y += blockSize;
+        block.x = drawingPosition.x;
+    }
 }
 
 test {
