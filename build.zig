@@ -1,12 +1,12 @@
 const std = @import("std");
 const rl = @import("raylib-zig/build.zig");
 
-
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
     var raylib = rl.getModule(b, "raylib-zig");
     var raylib_math = rl.math.getModule(b, "raylib-zig");
+
     //web exports are completely separate
     if (target.getOsTag() == .emscripten) {
         const exe_lib = rl.compileForEmscripten(b, "game-boy", "src/main.zig", target, optimize);
@@ -24,11 +24,16 @@ pub fn build(b: *std.Build) !void {
         return;
     }
 
-    const exe = b.addExecutable(.{ .name = "game-boy", .root_source_file = .{ .path = "src/main.zig" }, .optimize = optimize, .target = target });
+    const exe = b.addExecutable(.{
+        .name = "game-boy",
+        .root_source_file = .{ .path = "src/main.zig" },
+        .optimize = optimize,
+        .target = target,
+    });
 
-    rl.link(b, exe, target, optimize);
     exe.addModule("raylib", raylib);
     exe.addModule("raylib-math", raylib_math);
+    rl.link(b, exe, target, optimize);
 
     const run_cmd = b.addRunArtifact(exe);
     const run_step = b.step("run", "Run game-boy");
@@ -52,13 +57,13 @@ pub fn build(b: *std.Build) !void {
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_unit_tests.step);
 
-    const docs = b.addInstallDirectory(.{
-        .source_dir = unit_tests.getEmittedDocs(),
-        .install_dir = .prefix,
-        .install_subdir = "docs/",
-    });
-    b.getInstallStep().dependOn(&docs.step);
+    // const docs = b.addInstallDirectory(.{
+    //     .source_dir = unit_tests.getEmittedDocs(),
+    //     .install_dir = .prefix,
+    //     .install_subdir = "docs/",
+    // });
+    // b.getInstallStep().dependOn(&docs.step);
 
-    const docs_step = b.step("docs", "Build and install the documentation");
-    docs_step.dependOn(&docs.step);
+    // const docs_step = b.step("docs", "Build and install the documentation");
+    // docs_step.dependOn(&docs.step);
 }

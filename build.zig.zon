@@ -1,5 +1,5 @@
 .{
-    .name = "zig-raylib",
+    .name = "game-boy",
     .version = "0.1.0",
     .dependencies = .{
         .raylib = .{

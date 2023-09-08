@@ -236,7 +236,6 @@ fn drawSprite(cpu: *CPU, position: rl.Vector2, index: usize) !void {
 
             rl.drawRectangleRec(block, tint);
             testMask = testMask >> 2;
-            std.debug.print("{x}\n", .{testMask});
             block.x += blockSize;
         }
         block.y += blockSize;
