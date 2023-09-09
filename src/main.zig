@@ -32,7 +32,7 @@ pub fn main() anyerror!void {
 
     var cpu = CPU{};
     try loadProgram("rom.bin", &cpu);
-    //cpu.Initalize();
+    cpu.loadBootConfig();
 
     rl.setTargetFPS(targetFPS); // Set our game to run at 60 frames-per-second
     var frameCounter: i32 = 0;

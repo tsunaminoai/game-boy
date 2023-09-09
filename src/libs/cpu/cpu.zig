@@ -584,6 +584,48 @@ pub fn Tick(self: *Self) void {
         }
 }
 
+pub fn loadBootConfig(self: *Self) void {
+    self.WriteRegister(.AF, 0x0001);
+    self.WriteRegister(.F, 0xB0);
+    self.WriteRegister(.BC, 0x0013);
+    self.WriteRegister(.DE, 0x00D8);
+    self.WriteRegister(.HL, 0x014D);
+
+    self.WriteRegister(.SP, 0xFFFE);
+    self.WriteMemory(0xFFFF, 0x0, 1); // IE
+    self.WriteMemory(0xFF4B, 0x0, 1); // WX
+    self.WriteMemory(0xFF4A, 0x0, 1); // WY
+    self.WriteMemory(0xFF49, 0xFF, 1); // OBP1
+    self.WriteMemory(0xFF48, 0xFF, 1); // OBP0
+    self.WriteMemory(0xFF47, 0xFC, 1); // BGP
+    self.WriteMemory(0xFF45, 0x0, 1); // LYC
+    self.WriteMemory(0xFF43, 0x0, 1); // SCX
+    self.WriteMemory(0xFF42, 0x0, 1); // SCY
+    self.WriteMemory(0xFF40, 0x91, 1); // LCDC
+    self.WriteMemory(0xFF26, 0xF1, 1); // NR52
+    self.WriteMemory(0xFF25, 0xF3, 1); // NR51
+    self.WriteMemory(0xFF24, 0x77, 1); // NR50
+    self.WriteMemory(0xFF23, 0xBF, 1); // NR30
+    self.WriteMemory(0xFF22, 0x0, 1); // NR43
+    self.WriteMemory(0xFF21, 0x0, 1); // NR42
+    self.WriteMemory(0xFF20, 0xFF, 1); // NR41
+    self.WriteMemory(0xFF1E, 0x0, 1); // NR33
+    self.WriteMemory(0xFF1C, 0x9F, 1); // NR32
+    self.WriteMemory(0xFF1B, 0xFF, 1); // NR31
+    self.WriteMemory(0xFF1A, 0x7F, 1); // NR30
+    self.WriteMemory(0xFF19, 0xBF, 1); // NR24
+    self.WriteMemory(0xFF17, 0x0, 1); // NR22
+    self.WriteMemory(0xFF16, 0x3F, 1); // NR21
+    self.WriteMemory(0xFF14, 0xBF, 1); // NR14
+    self.WriteMemory(0xFF12, 0xF3, 1); // NR12
+    self.WriteMemory(0xFF11, 0xBF, 1); // NR11
+    self.WriteMemory(0xFF10, 0x80, 1); // NR10
+    self.WriteMemory(0xFF07, 0x0, 1); // TAC
+    self.WriteMemory(0xFF06, 0x0, 1); // TMA
+    self.WriteMemory(0xFF05, 0x0, 1); // TIMA
+
+}
+
 fn RotateL(self: *Self, value: u16) u16 {
     const C: u16 = if (self.flags.carry) 1 else 0;
     self.flags.carry = (value & 0x80) == 0x80;
