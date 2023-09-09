@@ -287,8 +287,16 @@ pub fn Tick(self: *Self) void {
         0x78 ... 0x7D => { self.LoadRegisterFromRegister(@as(RegisterName,@enumFromInt(opcode - 0x78)),.A); },
         0x7E => { self.LoadRegisterFromAddressRegister(.HL, .A); },
         0x7F => { self.LoadRegisterFromRegister(.A,.A); },
+        0x40 => {
+            self.LoadRegisterFromRegister(.B, .B);
+            std.debug.print("DEBUG BREAKPOINT TRIGGERED\n", .{});
+            for (0..12) |r| {
+                const reg = @as(RegisterName, @enumFromInt(r));
+                std.debug.print("{s}: {X}\n", .{@tagName(reg), self.registers.get(reg)});
+            }
+        },
 
-        0x40 ... 0x45 => { self.LoadRegisterFromRegister(@as(RegisterName,@enumFromInt(opcode - 0x40)), .B); },
+        0x41 ... 0x45 => { self.LoadRegisterFromRegister(@as(RegisterName,@enumFromInt(opcode - 0x41)), .B); },
         0x46 => { self.LoadRegisterFromAddressRegister(.HL, .B); },
 
         0x48 ... 0x4D => { self.LoadRegisterFromRegister(@as(RegisterName,@enumFromInt(opcode - 0x48)), .C); },
@@ -547,6 +555,11 @@ pub fn Tick(self: *Self) void {
             self.WriteRegister(.A, A);
             self.flags.zero = A == 0x0;
         },
+
+        // DE / EI
+        0xF3, 0xFB => {
+            //todo
+        },
         // PREFIX CB
         0xCB => {
             const notPrefix = self.fetchInstruction();
@@ -664,6 +677,12 @@ fn dumpStack(self: *Self) void {
 pub fn dump(self: *Self, msg: []const u8) void {
     var x: u8 = 0;
     std.debug.print("====  {s}  ====\n", .{msg});
+    std.debug.print("TICK: {d} INST: {X}  ARG1: {X} ARG2: {X}", .{
+        self.ticks,
+        self.currentIntruction,
+        self.ReadMemory(self.programCounter+1, 1),
+        self.ReadMemory(self.programCounter+2, 1),
+    });
     std.debug.print("PC: {X} SP: {X} Flags: {}\n", .{
         self.programCounter,
         self.ReadRegister(.SP),
@@ -678,14 +697,14 @@ pub fn dump(self: *Self, msg: []const u8) void {
         });
     }
 
-    std.debug.print("\nMemory Block [0..63]:\n", .{});
-    x = 1;
-    while (x < 64) : (x += 1) {
-        if (x % 8 == 0) {
-            std.debug.print("\n", .{});
-        }
-        std.debug.print("{X} ", .{self.memory[x - 1]});
-    }
+    // std.debug.print("\nMemory Block [0..63]:\n", .{});
+    // x = 1;
+    // while (x < 64) : (x += 1) {
+    //     if (x % 8 == 0) {
+    //         std.debug.print("\n", .{});
+    //     }
+    //     std.debug.print("{X} ", .{self.memory[x - 1]});
+    // }
     //self.dumpStack();
     std.debug.print("\n====  {s}  ====\n", .{msg});
 }

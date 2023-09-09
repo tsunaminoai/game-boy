@@ -31,7 +31,7 @@ pub fn main() anyerror!void {
     FONT = rl.loadFont("./assets/fonts/FreeSans.ttf");
 
     var cpu = CPU{};
-    try loadProgram("rom.bin", &cpu);
+    try loadProgram("bully.gb", &cpu);
     cpu.loadBootConfig();
 
     rl.setTargetFPS(targetFPS); // Set our game to run at 60 frames-per-second
@@ -47,10 +47,14 @@ pub fn main() anyerror!void {
         if (@mod(frameCounter, tickCheck ) == 0) {
             if (state.running) {
                 cpu.Tick();
+                //cpu.dump("");
             }
         }
         if (rl.isKeyPressed(rl.KeyboardKey.key_space)) {
             state.running = !state.running;
+        }
+        if (rl.isKeyPressed(rl.KeyboardKey.key_right)) {
+            cpu.Tick();
         }
         if (rl.isKeyPressed(rl.KeyboardKey.key_up)) {
             state.clockrate_hz *= 2;
@@ -145,6 +149,10 @@ fn drawCPU(cpu: *CPU, position: rl.Vector2) ! void {
     rl.drawTextEx(FONT, rl.textFormat("PC: %02x", .{cpu.programCounter}), currentWritingPosition, fontHeight, 2, rl.Color.sky_blue);
     currentWritingPosition.y += fontHeight;
     rl.drawTextEx(FONT, rl.textFormat("Ins: %02x", .{cpu.currentIntruction}), currentWritingPosition, fontHeight, 2, rl.Color.sky_blue);
+    currentWritingPosition.y += fontHeight;
+    rl.drawTextEx(FONT, rl.textFormat("Agr1: %02x", .{cpu.ReadMemory(cpu.currentIntruction+1, 1)}), currentWritingPosition, fontHeight, 2, rl.Color.sky_blue);
+    currentWritingPosition.y += fontHeight;
+    rl.drawTextEx(FONT, rl.textFormat("Arg2: %02x", .{cpu.ReadMemory(cpu.currentIntruction+2, 1)}), currentWritingPosition, fontHeight, 2, rl.Color.sky_blue);
     currentWritingPosition.y += fontHeight;
 
     //draw registers
