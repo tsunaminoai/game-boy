@@ -86,7 +86,6 @@ pub fn WriteRegister(self: *Self, register: RegisterName, value: u16) void {
             self.registers.set(RegisterName.HL, setMSB(self.ReadRegister(RegisterName.HL), value));
         },
         RegisterName.SP => {},
-
     }
 }
 
@@ -258,15 +257,19 @@ fn incPC(self: *Self, by: u16) void {
     self.programCounter += by;
 }
 
-pub fn Tick(self: *Self) void {
-    const opcode = self.memory[self.programCounter];
-    self.currentIntruction = opcode;
+fn fetchInstruction(self: *Self) u16 {
+    const inst = self.memory[self.programCounter];
+    self.currentIntruction = inst;
     self.incPC(1);
+    return inst;
+}
+
+pub fn Tick(self: *Self) void {
+    const opcode = self.fetchInstruction();
     self.ticks += 1;
 
-    if (!self.flags.carry) {
-        switch (opcode) {
-            // zig fmt: off
+    switch (opcode) {
+        // zig fmt: off
         //NOPE!
         0x00 => {},
 
@@ -341,6 +344,10 @@ pub fn Tick(self: *Self) void {
         0x22 => {
             self.WriteMemoryByteFromRegister(RegisterName.A, RegisterName.HL);
             self.incPC(2); self.RegisterIncrement(RegisterName.HL);
+        },
+        // LD (C),A
+        0xE2 => {
+            self.WriteMemory(0xFF00 + self.ReadRegister(RegisterName.C), self.ReadRegister(RegisterName.A), 1);
         },
 
         // Writes the value of a register to memory address defined in the program counter + $FF00
@@ -514,111 +521,56 @@ pub fn Tick(self: *Self) void {
         0xD0 => {  if( self.flags.carry == false) { self.StackPop(RegisterName.HL); self.jump(self.ReadRegister(RegisterName.HL)); } },
         0xD8 => { if( self.flags.carry == true) { self.StackPop(RegisterName.HL); self.jump(self.ReadRegister(RegisterName.HL)); } },
 
-        // zig fmt: on
-            else => {
-                std.debug.panic("OPCODE {x} NOT IMPLEMENTED", .{opcode});
-                unreachable;
-            },
-        }
-    } else {
-        switch (opcode) {
-            0x10...0x15 => {
-                self.WriteRegister(@as(RegisterName, @enumFromInt(opcode - 0x10)), self.ReadRegister(@as(RegisterName, @enumFromInt(opcode - 0x10))));
-            },
-            0x16 => {
-                self.WriteMemory(self.ReadRegister(RegisterName.HL), self.RotateL(self.ReadMemory(self.ReadRegister(RegisterName.HL), 1)), 1);
-            },
-            0x17 => {
-                self.WriteRegister(RegisterName.A, self.ReadRegister(RegisterName.A));
-            },
-            0x30...0x35 => {
-                self.WriteRegister(@as(RegisterName, @enumFromInt(opcode - 0x30)), self.swap(self.ReadRegister(@as(RegisterName, @enumFromInt(opcode - 0x30)))));
-            },
-            0x36 => {
-                self.WriteMemory(self.ReadRegister(RegisterName.HL), self.swap(self.ReadMemory(self.ReadRegister(RegisterName.HL), 1)), 1);
-            },
-            0x37 => {
-                self.WriteRegister(RegisterName.A, self.swap(self.ReadRegister(RegisterName.A)));
-            },
-            // ADC A,n
-            0x88...0x8D => {
-                self.RegisterAMOps(MOps.add, self.ReadRegister(@as(RegisterName, @enumFromInt(opcode - 0x88))), 1, true);
-            },
-            0x8E => {
-                self.RegisterAMOps(MOps.add, self.ReadMemory(self.ReadRegister(RegisterName.HL), 1), 1, true);
-            },
-            0x8F => {
-                self.RegisterAMOps(MOps.add, self.ReadRegister(RegisterName.A), 1, true);
-            },
-            0xCE => {
-                self.RegisterAMOps(MOps.add, self.ReadMemory(self.programCounter, 1), 1, true);
-            },
-            // JP cc,nn
-            0xC2 => {
-                if (self.flags.zero == false) {
-                    self.jump(self.ReadMemory(self.programCounter, 2));
-                } else {
-                    self.incPC(2);
-                }
-            },
-            0xCA => {
-                if (self.flags.zero == true) {
-                    self.jump(self.ReadMemory(self.programCounter, 2));
-                } else {
-                    self.incPC(2);
-                }
-            },
-            0xD2 => {
-                if (self.flags.carry == false) {
-                    self.jump(self.ReadMemory(self.programCounter, 2));
-                } else {
-                    self.incPC(2);
-                }
-            },
-            0xDA => {
-                if (self.flags.carry == true) {
-                    self.jump(self.ReadMemory(self.programCounter, 2));
-                } else {
-                    self.incPC(2);
-                }
-            },
-            0xE9 => {
-                self.jump(self.ReadMemory(self.ReadRegister(RegisterName.HL), 2));
-            },
+        // RLA
+        0x17 => {
+            self.flags.halfCarry = false;
+            self.flags.subtraction = false;
+            var A = self.ReadRegister(RegisterName.A);
+            const bit7 = A & 0x80;
+            A = A << 1;
+            A = A & 0xFF;
+            A += @as(u16, @intFromBool(self.flags.carry));
+            self.flags.carry = bit7 == 0x80;
+            self.WriteRegister(RegisterName.A, A);
+            self.flags.zero = A == 0x0;
+        },
+        // PREFIX CB
+        0xCB => {
+            const notPrefix = self.fetchInstruction();
+            switch (notPrefix) {
 
-            // JR n
-            0x18 => {
-                self.AddAndJump();
+                0x10...0x15 => {
+                    self.WriteRegister(@as(RegisterName, @enumFromInt(notPrefix - 0x10)), self.ReadRegister(@as(RegisterName, @enumFromInt(notPrefix - 0x10))));
+                },
+                0x16 => {
+                    self.WriteMemory(self.ReadRegister(RegisterName.HL), self.RotateL(self.ReadMemory(self.ReadRegister(RegisterName.HL), 1)), 1);
+                },
+                0x17 => {
+                    self.WriteRegister(RegisterName.A, self.ReadRegister(RegisterName.A));
+                },
+                0x30...0x35 => {
+                    self.WriteRegister(@as(RegisterName, @enumFromInt(notPrefix - 0x30)), self.swap(self.ReadRegister(@as(RegisterName, @enumFromInt(notPrefix - 0x30)))));
+                },
+                0x36 => {
+                    self.WriteMemory(self.ReadRegister(RegisterName.HL), self.swap(self.ReadMemory(self.ReadRegister(RegisterName.HL), 1)), 1);
+                },
+                0x37 => {
+                    self.WriteRegister(RegisterName.A, self.swap(self.ReadRegister(RegisterName.A)));
+                },
+                else => {
+                    std.debug.panic("PREFIX OPERATION {x} NOT IMPLEMENTED", .{notPrefix});
+                    unreachable;
             },
-            0x20 => {
-                if (self.flags.zero == false) {
-                    self.AddAndJump();
-                } else {
-                    self.incPC(1);
-                }
-            },
-            0x28 => {
-                if (self.flags.zero == true) {
-                    self.AddAndJump();
-                } else {
-                    self.incPC(1);
-                }
-            },
-            0x38 => {
-                if (self.flags.carry == true) {
-                    self.AddAndJump();
-                } else {
-                    self.incPC(1);
-                }
-            },
+            }
+        },
 
             else => {
                 std.debug.panic("OPCODE {x} NOT IMPLEMENTED", .{opcode});
                 unreachable;
             },
         }
-    }
 }
+
 fn RotateL(self: *Self, value: u16) u16 {
     const C: u16 = if (self.flags.carry) 1 else 0;
     self.flags.carry = (value & 0x80) == 0x80;
@@ -661,13 +613,13 @@ pub fn dump(self: *Self, msg: []const u8) void {
         self.flags,
     });
 
-    // while (x < 13) : (x += 1) {
-    //     std.debug.print("{}: {X} => ({X})\n", .{
-    //         @as(RegisterName, @enumFromInt(x)),
-    //         self.registers[x],
-    //         self.memory[self.registers[x]],
-    //     });
-    // }
+    while (x < 13) : (x += 1) {
+        std.debug.print("{}: {X} => ({X})\n", .{
+            @as(RegisterName, @enumFromInt(x)),
+            self.registers.get(@enumFromInt(x)),
+            self.memory[self.registers.get(@enumFromInt(x))],
+        });
+    }
 
     std.debug.print("\nMemory Block [0..63]:\n", .{});
     x = 1;

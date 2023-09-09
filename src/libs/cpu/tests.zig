@@ -623,3 +623,15 @@ test "RET" {
     try expect(cpu.programCounter == 0xBEEF);
     try expect(cpu.ReadRegister(R.SP) == 0xFFFE);
 }
+
+test "RLA" {
+    var cpu = CPU{};
+    cpu.flags.carry = false;
+    cpu.WriteRegister(R.A, 0x80);
+    cpu.WriteMemory(0x0, 0x17, 1);
+    cpu.Tick();
+
+    try expect(cpu.flags.zero == true);
+    try expect(cpu.flags.carry == true);
+    try expect(cpu.ReadRegister(R.A) == 0x0);
+}
