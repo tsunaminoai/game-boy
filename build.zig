@@ -48,6 +48,9 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
+    unit_tests.addModule("raylib", raylib);
+    unit_tests.addModule("raylib-math", raylib_math);
+    rl.link(b, unit_tests, target, optimize);
 
     const run_unit_tests = b.addRunArtifact(unit_tests);
 
