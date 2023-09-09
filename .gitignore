@@ -1,6 +1,9 @@
 # Zig specific
 zig-cache/
 zig-out/
+raylib-zig/
+
+.DS_Store
 
 *.bin
 
