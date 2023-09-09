@@ -531,8 +531,7 @@ pub fn Tick(self: *Self) void {
                 self.WriteRegister(RegisterName.A, self.ReadRegister(RegisterName.A));
             },
             0x30...0x35 => {
-                std.debug.print("{}\n", .{@as(RegisterName, @enumFromInt(opcode - 0x10))});
-                self.WriteRegister(@as(RegisterName, @enumFromInt(opcode - 0x10)), self.swap(self.ReadRegister(@as(RegisterName, @enumFromInt(opcode - 0x10)))));
+                self.WriteRegister(@as(RegisterName, @enumFromInt(opcode - 0x30)), self.swap(self.ReadRegister(@as(RegisterName, @enumFromInt(opcode - 0x30)))));
             },
             0x36 => {
                 self.WriteMemory(self.ReadRegister(RegisterName.HL), self.swap(self.ReadMemory(self.ReadRegister(RegisterName.HL), 1)), 1);
@@ -540,6 +539,78 @@ pub fn Tick(self: *Self) void {
             0x37 => {
                 self.WriteRegister(RegisterName.A, self.swap(self.ReadRegister(RegisterName.A)));
             },
+            // ADC A,n
+            0x88...0x8D => {
+                self.RegisterAMOps(MOps.add, self.ReadRegister(@as(RegisterName, @enumFromInt(opcode - 0x88))), 1, true);
+            },
+            0x8E => {
+                self.RegisterAMOps(MOps.add, self.ReadMemory(self.ReadRegister(RegisterName.HL), 1), 1, true);
+            },
+            0x8F => {
+                self.RegisterAMOps(MOps.add, self.ReadRegister(RegisterName.A), 1, true);
+            },
+            0xCE => {
+                self.RegisterAMOps(MOps.add, self.ReadMemory(self.programCounter, 1), 1, true);
+            },
+            // JP cc,nn
+            0xC2 => {
+                if (self.flags.zero == false) {
+                    self.jump(self.ReadMemory(self.programCounter, 2));
+                } else {
+                    self.incPC(2);
+                }
+            },
+            0xCA => {
+                if (self.flags.zero == true) {
+                    self.jump(self.ReadMemory(self.programCounter, 2));
+                } else {
+                    self.incPC(2);
+                }
+            },
+            0xD2 => {
+                if (self.flags.carry == false) {
+                    self.jump(self.ReadMemory(self.programCounter, 2));
+                } else {
+                    self.incPC(2);
+                }
+            },
+            0xDA => {
+                if (self.flags.carry == true) {
+                    self.jump(self.ReadMemory(self.programCounter, 2));
+                } else {
+                    self.incPC(2);
+                }
+            },
+            0xE9 => {
+                self.jump(self.ReadMemory(self.ReadRegister(RegisterName.HL), 2));
+            },
+
+            // JR n
+            0x18 => {
+                self.AddAndJump();
+            },
+            0x20 => {
+                if (self.flags.zero == false) {
+                    self.AddAndJump();
+                } else {
+                    self.incPC(1);
+                }
+            },
+            0x28 => {
+                if (self.flags.zero == true) {
+                    self.AddAndJump();
+                } else {
+                    self.incPC(1);
+                }
+            },
+            0x38 => {
+                if (self.flags.carry == true) {
+                    self.AddAndJump();
+                } else {
+                    self.incPC(1);
+                }
+            },
+
             else => {
                 std.debug.panic("OPCODE {x} NOT IMPLEMENTED", .{opcode});
                 unreachable;
