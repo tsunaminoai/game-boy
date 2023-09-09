@@ -1,5 +1,5 @@
 const std = @import("std");
-const CPU = @import("./libs/cpu/cpu.zig").CPU;
+const CPU = @import("./libs/cpu/cpu.zig");
 
 // raylib-zig (c) Nikolas Wipper 2023
 
