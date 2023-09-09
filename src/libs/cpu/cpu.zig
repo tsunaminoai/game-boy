@@ -534,6 +534,19 @@ pub fn Tick(self: *Self) void {
             self.WriteRegister(RegisterName.A, A);
             self.flags.zero = A == 0x0;
         },
+        // RRA
+        0x1F => {
+            self.flags.halfCarry = false;
+            self.flags.subtraction = false;
+            var A = self.ReadRegister(RegisterName.A);
+            const bit0 = A & 0x1;
+            A = A >> 1;
+            A += @as(u16, @intFromBool(self.flags.carry)) << 7;
+            A = A & 0xFF;
+            self.flags.carry = bit0 == 0x1;
+            self.WriteRegister(RegisterName.A, A);
+            self.flags.zero = A == 0x0;
+        },
         // PREFIX CB
         0xCB => {
             const notPrefix = self.fetchInstruction();

@@ -635,3 +635,15 @@ test "RLA" {
     try expect(cpu.flags.carry == true);
     try expect(cpu.ReadRegister(R.A) == 0x0);
 }
+
+test "RRA" {
+    var cpu = CPU{};
+    cpu.flags.carry = false;
+    cpu.WriteRegister(R.A, 0x1);
+    cpu.WriteMemory(0x0, 0x1F, 1);
+    cpu.Tick();
+
+    try expect(cpu.flags.zero == true);
+    try expect(cpu.flags.carry == true);
+    try expect(cpu.ReadRegister(R.A) == 0x0);
+}
