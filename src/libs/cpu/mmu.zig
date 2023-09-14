@@ -1,7 +1,7 @@
 const std = @import("std");
 
 const Self = @This();
-const BUFFER_SIZE: usize = 0x12;
+const BUFFER_SIZE: usize = 0x8000;
 
 blocks: extern struct {
     internal_rom: [BUFFER_SIZE]u8 align(8),
