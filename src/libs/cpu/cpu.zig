@@ -2,10 +2,12 @@ const std = @import("std");
 pub const RegisterName = @import("types.zig").RegisterName;
 const Flags = @import("types.zig").Flags;
 const MOps = @import("types.zig").MathOperations;
+const Mmu = @import("mmu.zig");
 
 const Self = @This();
 
 memory: [MemorySize]u16 = [_]u16{0} ** MemorySize,
+mmu: Mmu = undefined,
 flags: Flags = Flags{},
 programCounter: u16 = 0,
 currentIntruction: u16 = 0,
@@ -31,12 +33,21 @@ fn setMSB(val16: u16, val8: u16) u16 {
     return (val16) | (val8 & 0x00FF);
 }
 
+pub fn init() !Self {
+    return Self{ .mmu = Mmu{
+        .blocks = undefined,
+    } };
+}
+
 pub fn Run(self: *Self) !void {
     _ = self;
 }
 
-pub fn ReadRegister(self: *Self, register: RegisterName) u16 {
+pub fn ReadRegister16(self: *Self, register: RegisterName) u16 {
     return self.registers.get(register);
+}
+pub fn ReadRegister(self: *Self, register: RegisterName) u8 {
+    return @as(u8, @truncate(self.registers.get(register)));
 }
 
 // We're going to take advantage of the fact that there are 8 8bit registers and their
@@ -62,28 +73,28 @@ pub fn WriteRegister(self: *Self, register: RegisterName, value: u16) void {
             self.registers.set(.L, getMSB(value));
         },
         .A => {
-            self.registers.set(.AF, setLSB(self.ReadRegister(.AF), value));
+            self.registers.set(.AF, setLSB(self.ReadRegister16(.AF), value));
         },
         .F => {
-            self.registers.set(.AF, setMSB(self.ReadRegister(.AF), value));
+            self.registers.set(.AF, setMSB(self.ReadRegister16(.AF), value));
         },
         .B => {
-            self.registers.set(.BC, setLSB(self.ReadRegister(.BC), value));
+            self.registers.set(.BC, setLSB(self.ReadRegister16(.BC), value));
         },
         .C => {
-            self.registers.set(.BC, setMSB(self.ReadRegister(.BC), value));
+            self.registers.set(.BC, setMSB(self.ReadRegister16(.BC), value));
         },
         .D => {
-            self.registers.set(.DE, setLSB(self.ReadRegister(.DE), value));
+            self.registers.set(.DE, setLSB(self.ReadRegister16(.DE), value));
         },
         .E => {
-            self.registers.set(.DE, setMSB(self.ReadRegister(.DE), value));
+            self.registers.set(.DE, setMSB(self.ReadRegister16(.DE), value));
         },
         .H => {
-            self.registers.set(.HL, setLSB(self.ReadRegister(.HL), value));
+            self.registers.set(.HL, setLSB(self.ReadRegister16(.HL), value));
         },
         .L => {
-            self.registers.set(.HL, setMSB(self.ReadRegister(.HL), value));
+            self.registers.set(.HL, setMSB(self.ReadRegister16(.HL), value));
         },
         .SP => {},
     }
@@ -95,52 +106,38 @@ fn LoadRegister(self: *Self, register: RegisterName) void {
 }
 
 fn LoadRegisterFromRegister(self: *Self, source: RegisterName, destination: RegisterName) void {
-    self.WriteRegister(destination, self.ReadRegister(source));
+    self.WriteRegister(destination, self.ReadRegister16(source));
 }
 
 fn LoadRegisterFromAddressRegister(self: *Self, source: RegisterName, destination: RegisterName) void {
-    self.WriteRegister(destination, self.ReadMemory(self.ReadRegister(source), 1));
-}
-
-pub fn WriteMemory(self: *Self, address: u16, value: u16, size: u2) void {
-    // for each byte we're expecting
-    var idx: usize = 0;
-    while (idx < size) : (idx += 1) {
-        // write to the address + offset
-        // the value passed in shifted by i bytes and masked to u8
-        self.memory[address + idx] = (value >> @intCast(8 * idx)) & 0x00FF;
-    }
-}
-
-pub fn ReadMemory(self: *Self, address: u16, size: u2) u16 {
-    switch (size) {
-        1 => {
-            return self.memory[address];
-        },
-        2 => {
-            return (self.memory[address + 1] << 8) + self.memory[address];
-        },
-        else => unreachable,
-    }
+    self.WriteRegister(destination, self.mmu.read(self.ReadRegister(source)));
 }
 
 /// Writes a source register value to a memory address defined in the address register
 fn WriteMemoryByteFromRegister(self: *Self, sourceRegisterName: RegisterName, addressRegisterName: RegisterName) void {
-    self.WriteMemory(self.ReadRegister(addressRegisterName), self.ReadRegister(sourceRegisterName), 1);
+    switch (sourceRegisterName) {
+        .AF, .BC, .DE, .HL, .SP => {
+            self.mmu.write16(self.ReadRegister16(addressRegisterName), self.ReadRegister16(sourceRegisterName));
+        },
+        else => {
+            self.mmu.write(self.ReadRegister16(addressRegisterName), self.ReadRegister(sourceRegisterName));
+        },
+    }
 }
 
 /// Writes to a memory address defined as the next <size> immediates
-fn WriteMemoryByteFromAddressNN(self: *Self, sourceRegisterName: RegisterName, size: u2) void {
-    self.WriteMemory(self.ReadMemory(self.programCounter, size), self.ReadRegister(sourceRegisterName), size);
+fn WriteMemoryByteFromAddressNN(self: *Self, sourceRegisterName: RegisterName) void {
+    //todo: theres a bug here with not reading two bytes
+    self.mmu.write(self.mmu.read(self.programCounter), self.ReadRegister(sourceRegisterName));
 }
 
 /// Pushes the source register onto the stack
 fn StackPush(self: *Self, sourceRegisterName: RegisterName) void {
-    const SP = self.ReadRegister(.SP);
+    const SP = self.ReadRegister16(.SP);
     const LSB = getLSB(self.ReadRegister(sourceRegisterName));
     const MSB = getMSB(self.ReadRegister(sourceRegisterName));
-    self.WriteMemory(SP + 1, MSB, 1);
-    self.WriteMemory(SP, LSB, 1);
+    self.mmu.write(SP + 1, MSB);
+    self.mmu.write(SP, LSB);
     self.RegisterDecrement(.SP);
     self.RegisterDecrement(.SP);
 }
@@ -151,9 +148,9 @@ fn StackPop(self: *Self, destinationRegisterName: RegisterName) void {
     self.RegisterIncrement(.SP);
     self.RegisterIncrement(.SP);
 
-    const SP = self.ReadRegister(.SP);
-    result = setLSB(result, self.ReadMemory(SP + 1, 1));
-    result = setMSB(result, self.ReadMemory(SP, 1));
+    const SP = self.ReadRegister16(.SP);
+    result = setLSB(result, self.mmu.read(SP + 1));
+    result = setMSB(result, self.mmu.read(SP));
     self.WriteRegister(destinationRegisterName, result);
 }
 
@@ -220,7 +217,7 @@ pub fn logicalXor(self: *Self, op1: u16, op2: u16) u16 {
 pub fn cmp(self: *Self, op1: u16, op2: u16) void {
     _ = self.subtract(op1, op2, 1, false);
 }
-pub fn swap(self: *Self, op1: u16) u16 {
+pub fn swap(self: *Self, op1: u16) u8 {
     const result = 0xFF & (op1 << 4) + (op1 >> 4);
     self.flags = .{
         .zero = result == 0x0,
@@ -228,7 +225,7 @@ pub fn swap(self: *Self, op1: u16) u16 {
         .halfCarry = false,
         .carry = false,
     };
-    return result;
+    return @truncate(result);
 }
 fn RegisterAMOps(self: *Self, operation: MOps, value: u16, size: u2, useCarry: bool) void {
     switch (operation) {
@@ -319,7 +316,7 @@ pub fn Tick(self: *Self) void {
 
         0x0A => { self.LoadRegisterFromAddressRegister(.BC, .A); },
         0x1A => { self.LoadRegisterFromAddressRegister(.DE, .A); },
-        0xFA => { self.WriteRegister(.A, self.ReadMemory(self.ReadMemory(self.programCounter, 2), 1)); self.incPC(2); },
+        0xFA => { self.WriteRegister(.A, self.mmu.read(self.mmu.read16(self.programCounter))); self.incPC(2); },
         0x3E => { self.LoadRegister( .A ); },
 
         0x47 => { self.LoadRegisterFromRegister( .A, .B ); },
@@ -331,7 +328,7 @@ pub fn Tick(self: *Self) void {
         0x02 => { self.WriteMemoryByteFromRegister(.A, .BC); },
         0x12 => { self.WriteMemoryByteFromRegister(.A, .DE); },
         0x77 => { self.WriteMemoryByteFromRegister(.A, .HL); },
-        0xEA => { self.WriteMemoryByteFromAddressNN(.A, 1); },
+        0xEA => { self.WriteMemoryByteFromAddressNN(.A); },
 
         // LDD A,(HL)
         0x3A => {
@@ -355,39 +352,33 @@ pub fn Tick(self: *Self) void {
         },
         // LD (C),A
         0xE2 => {
-            self.WriteMemory(0xFF00 + self.ReadRegister(.C), self.ReadRegister(.A), 1);
+            self.mmu.write(0xFF00 + self.ReadRegister16(.C), self.ReadRegister(.A));
         },
 
         // Writes the value of a register to memory address defined in the program counter + $FF00
         0xE0 => {
-            self.WriteMemory(
-                self.ReadMemory(
-                    self.programCounter,
-                    1)
-                    + MemoryOffset,
-                self.ReadRegister(.A),
-                1);
-            },
+            self.mmu.write(self.mmu.read(self.programCounter) + MemoryOffset, self.ReadRegister(.A));
+        },
 
         // Write the value of memory address defined in the program counter + $FF00 to a register
-        0xF0 => { self.WriteRegister(.A, self.memory[self.memory[self.programCounter] + MemoryOffset]); },
+        0xF0 => { self.WriteRegister(.A, self.mmu.read(self.mmu.read(self.programCounter + MemoryOffset))); },
 
         //16-bit loads
-        0x01 => { self.WriteRegister(.BC, self.ReadMemory(self.programCounter, 2)); self.incPC(2); },
-        0x11 => { self.WriteRegister(.DE, self.ReadMemory(self.programCounter, 2)); self.incPC(2); },
-        0x21 => { self.WriteRegister(.HL, self.ReadMemory(self.programCounter, 2)); self.incPC(2); },
-        0x31 => { self.WriteRegister(.SP, self.ReadMemory(self.programCounter, 2)); self.incPC(2); },
+        0x01 => { self.WriteRegister(.BC, self.mmu.read16(self.programCounter)); self.incPC(2); },
+        0x11 => { self.WriteRegister(.DE, self.mmu.read16(self.programCounter)); self.incPC(2); },
+        0x21 => { self.WriteRegister(.HL, self.mmu.read16(self.programCounter)); self.incPC(2); },
+        0x31 => { self.WriteRegister(.SP, self.mmu.read16(self.programCounter)); self.incPC(2); },
 
         0xF9 => { self.LoadRegisterFromRegister(.HL, .SP); },
 
         0xF8 => {
             // get effective address
-            const eax = self.add(self.ReadRegister(.SP), self.ReadMemory(self.programCounter,1), 2, false);
+            const eax = self.add(self.ReadRegister16(.SP), self.mmu.read16(self.programCounter), 2, false);
             self.incPC(1);
-            self.WriteRegister(.HL, self.ReadMemory(eax, 2));
+            self.WriteRegister(.HL, self.mmu.read16(eax));
         },
 
-        0x08 => { self.WriteMemoryByteFromAddressNN(.SP, 2); },
+        0x08 => { self.WriteMemoryByteFromAddressNN(.SP); },
 
         0xF5 => { self.StackPush(.AF); },
         0xC5 => { self.StackPush(.BC); },
@@ -401,56 +392,56 @@ pub fn Tick(self: *Self) void {
 
         // ADD A,m
         0x80 ... 0x85 => { self.RegisterAMOps(MOps.add, self.ReadRegister(@as(RegisterName,@enumFromInt(opcode - 0x80))), 1, false); },
-        0x86 => { self.RegisterAMOps(MOps.add, self.ReadMemory(self.ReadRegister(.HL), 1), 1, false); },
+        0x86 => { self.RegisterAMOps(MOps.add, self.mmu.read(self.ReadRegister16(.HL)), 1, false); },
         0x87 => { self.RegisterAMOps(MOps.add, self.ReadRegister(.A), 1, false); },
-        0xC6 => { self.RegisterAMOps(MOps.add, self.ReadMemory(self.programCounter, 1), 1, false); },
+        0xC6 => { self.RegisterAMOps(MOps.add, self.mmu.read(self.programCounter), 1, false); },
 
         // ADC A,n
         0x88 ... 0x8D => { self.RegisterAMOps(MOps.add, self.ReadRegister(@as(RegisterName,@enumFromInt(opcode - 0x88))), 1, true); },
-        0x8E => { self.RegisterAMOps(MOps.add, self.ReadMemory(self.ReadRegister(.HL), 1), 1, true); },
+        0x8E => { self.RegisterAMOps(MOps.add, self.mmu.read(self.ReadRegister16(.HL)), 1, true); },
         0x8F => { self.RegisterAMOps(MOps.add, self.ReadRegister(.A), 1, true); },
-        0xCE => { self.RegisterAMOps(MOps.add, self.ReadMemory(self.programCounter, 1), 1, true); },
+        0xCE => { self.RegisterAMOps(MOps.add, self.mmu.read(self.programCounter), 1, true); },
 
         // SUB A,n
         0x90 ... 0x95 => { self.RegisterAMOps(MOps.subtract, self.ReadRegister(@as(RegisterName,@enumFromInt(opcode - 0x90))), 1, false); },
-        0x96 => { self.RegisterAMOps(MOps.subtract, self.ReadMemory(self.ReadRegister(.HL), 1), 1, false); },
+        0x96 => { self.RegisterAMOps(MOps.subtract, self.mmu.read(self.ReadRegister16(.HL)), 1, false); },
         0x97 => { self.RegisterAMOps(MOps.subtract, self.ReadRegister(.A), 1, false); },
-        0xD6 => { self.RegisterAMOps(MOps.subtract, self.ReadMemory(self.programCounter, 1), 1, false); },
+        0xD6 => { self.RegisterAMOps(MOps.subtract, self.mmu.read(self.programCounter), 1, false); },
 
         // SBC A.n
         0x98 ... 0x9D => { self.RegisterAMOps(MOps.subtract, self.ReadRegister(@as(RegisterName,@enumFromInt(opcode - 0x98))), 1, true); },
-        0x9E => { self.RegisterAMOps(MOps.subtract, self.ReadMemory(self.ReadRegister(.HL), 1), 1, true); },
+        0x9E => { self.RegisterAMOps(MOps.subtract, self.mmu.read(self.ReadRegister16(.HL)), 1, true); },
         0x9F => { self.RegisterAMOps(MOps.subtract, self.ReadRegister(.A), 1, true); },
         // undefined 0x?? => { self.RegisterAMOps(MOps.subtract, self.ReadMemory(self.programCounter, 1), 1, true); }
 
         // AND
         0xA0 ... 0xA5 => { self.RegisterAMOps(MOps.logicalAnd, self.ReadRegister(@as(RegisterName,@enumFromInt(opcode - 0xA0))), 0, false); },
-        0xA6 => { self.RegisterAMOps(MOps.logicalAnd, self.ReadMemory(self.ReadRegister(.HL), 1), 0, false); },
+        0xA6 => { self.RegisterAMOps(MOps.logicalAnd, self.mmu.read(self.ReadRegister16(.HL)), 0, false); },
         0xA7 => { self.RegisterAMOps(MOps.logicalAnd, self.ReadRegister(.A), 0, false); },
-        0xE6 => { self.RegisterAMOps(MOps.logicalAnd, self.ReadMemory(self.programCounter, 1), 0, false); },
+        0xE6 => { self.RegisterAMOps(MOps.logicalAnd, self.mmu.read(self.programCounter), 0, false); },
 
         // XOR
         0xA8 ... 0xAD => { self.RegisterAMOps(MOps.logicalOr, self.ReadRegister(@as(RegisterName,@enumFromInt(opcode - 0xA8))), 0, false); },
-        0xAE => { self.RegisterAMOps(MOps.logicalOr, self.ReadMemory(self.ReadRegister(.HL), 1), 0, false); },
+        0xAE => { self.RegisterAMOps(MOps.logicalOr, self.mmu.read(self.ReadRegister16(.HL)), 0, false); },
         0xAF => { self.RegisterAMOps(MOps.logicalOr, self.ReadRegister(.A), 0, false); },
-        0xEE => { self.RegisterAMOps(MOps.logicalOr, self.ReadMemory(self.programCounter, 1), 0, false); },
+        0xEE => { self.RegisterAMOps(MOps.logicalOr, self.mmu.read(self.programCounter), 0, false); },
 
         // OR
         0xB0 ... 0xB5 => { self.RegisterAMOps(MOps.logicalOr, self.ReadRegister(@as(RegisterName,@enumFromInt(opcode - 0xB0))), 0, false); },
-        0xB6 => { self.RegisterAMOps(MOps.logicalOr, self.ReadMemory(self.ReadRegister(.HL), 1), 0, false); },
+        0xB6 => { self.RegisterAMOps(MOps.logicalOr, self.mmu.read(self.ReadRegister16(.HL)), 0, false); },
         0xB7 => { self.RegisterAMOps(MOps.logicalOr, self.ReadRegister(.A), 0, false); },
-        0xF6 => { self.RegisterAMOps(MOps.logicalOr, self.ReadMemory(self.programCounter, 1), 0, false); },
+        0xF6 => { self.RegisterAMOps(MOps.logicalOr, self.mmu.read(self.programCounter), 0, false); },
 
 
         // CMP
         0xB8 ... 0xBD => { self.RegisterAMOps(MOps.cmp, self.ReadRegister(@as(RegisterName,@enumFromInt(opcode - 0xB8))), 0, false); },
-        0xBE => { self.RegisterAMOps(MOps.cmp, self.ReadMemory(self.ReadRegister(.HL), 1), 0, false); },
+        0xBE => { self.RegisterAMOps(MOps.cmp, self.mmu.read(self.ReadRegister16(.HL)), 0, false); },
         0xBF => { self.RegisterAMOps(MOps.cmp, self.ReadRegister(.A), 0, false); },
-        0xFE => { self.RegisterAMOps(MOps.cmp, self.ReadMemory(self.programCounter, 1), 0, false); },
+        0xFE => { self.RegisterAMOps(MOps.cmp, self.mmu.read(self.programCounter), 0, false); },
 
         // INC
         0x04 ,0x0C ,0x14 ,0x1C ,0x24 ,0x2C => { self.RegisterIncrement(@as(RegisterName,@enumFromInt((opcode - 0x04)/8 ))); },
-        0x34 => { self.WriteMemory(self.ReadRegister(.HL), self.add(self.ReadMemory(self.ReadRegister(.HL), 1), 0x1, 1, false), 1); },
+        0x34 => { self.mmu.write(self.ReadRegister16(.HL), @as(u8, @truncate(self.add(self.mmu.read(self.ReadRegister16(.HL)), 0x1, 1, false)))); },
         0x3C => { self.RegisterIncrement(.A); },
         0x03 => { self.RegisterIncrement(.BC); },
         0x13 => { self.RegisterIncrement(.DE); },
@@ -459,7 +450,7 @@ pub fn Tick(self: *Self) void {
 
         // DEC
         0x05, 0x0D, 0x15, 0x1D, 0x25, 0x2D => { self.RegisterDecrement(@as(RegisterName,@enumFromInt((opcode - 0x05)/8 ))); },
-        0x35 => { self.WriteMemory(self.ReadRegister(.HL), self.subtract(self.ReadMemory(self.ReadRegister(.HL), 1), 0x1, 1, false), 1); },
+        0x35 => { self.mmu.write(self.ReadRegister16(.HL), @as(u8, @truncate(self.subtract(self.mmu.read(self.ReadRegister16(.HL)), 0x1, 1, false)))); },
         0x3D => { self.RegisterDecrement(.A); },
         0x0B => { self.RegisterDecrement(.BC); },
         0x1B => { self.RegisterDecrement(.DE); },
@@ -467,25 +458,25 @@ pub fn Tick(self: *Self) void {
         0x3B => { self.RegisterDecrement(.SP); },
 
         // ADD HL,n
-        0x09 => {self.WriteRegister(.HL, self.add(self.ReadRegister(.HL), self.ReadRegister(.BC), 1, false)); },
-        0x19 => {self.WriteRegister(.HL, self.add(self.ReadRegister(.HL), self.ReadRegister(.DE), 1, false)); },
-        0x29 => {self.WriteRegister(.HL, self.add(self.ReadRegister(.HL), self.ReadRegister(.HL), 1, false)); },
-        0x39 => {self.WriteRegister(.HL, self.add(self.ReadRegister(.HL), self.ReadRegister(.SP), 1, false)); },
+        0x09 => {self.WriteRegister(.HL, self.add(self.ReadRegister16(.HL), self.ReadRegister16(.BC), 1, false)); },
+        0x19 => {self.WriteRegister(.HL, self.add(self.ReadRegister16(.HL), self.ReadRegister16(.DE), 1, false)); },
+        0x29 => {self.WriteRegister(.HL, self.add(self.ReadRegister16(.HL), self.ReadRegister16(.HL), 1, false)); },
+        0x39 => {self.WriteRegister(.HL, self.add(self.ReadRegister16(.HL), self.ReadRegister16(.SP), 1, false)); },
 
         // ADD SP,n
         0xE8 => {
-            self.WriteRegister(.SP, self.add( self.ReadRegister(.SP), self.ReadMemory(self.programCounter, 1),  1, false ));
+            self.WriteRegister(.SP, self.add( self.ReadRegister16(.SP), self.mmu.read(self.programCounter),  1, false ));
             self.incPC(1);
         },
 
         // JP nn
-        0xC3 => { self.jump(self.ReadMemory(self.programCounter, 2)); },
+        0xC3 => { self.jump(self.mmu.read16(self.programCounter)); },
         // JP cc,nn
-        0xC2 => { if( self.flags.zero == false)  { self.jump(self.ReadMemory(self.programCounter, 2)); } else { self.incPC(2) ; } },
-        0xCA => { if( self.flags.zero == true)   { self.jump(self.ReadMemory(self.programCounter, 2)); } else { self.incPC(2) ; } },
-        0xD2 => { if( self.flags.carry == false) { self.jump(self.ReadMemory(self.programCounter, 2)); } else { self.incPC(2) ; } },
-        0xDA => { if( self.flags.carry == true)  { self.jump(self.ReadMemory(self.programCounter, 2)); } else { self.incPC(2) ; } },
-        0xE9 => { self.jump(self.ReadMemory(self.ReadRegister(.HL), 2)); },
+        0xC2 => { if( self.flags.zero == false)  { self.jump(self.mmu.read16(self.programCounter)); } else { self.incPC(2) ; } },
+        0xCA => { if( self.flags.zero == true)   { self.jump(self.mmu.read16(self.programCounter)); } else { self.incPC(2) ; } },
+        0xD2 => { if( self.flags.carry == false) { self.jump(self.mmu.read16(self.programCounter)); } else { self.incPC(2) ; } },
+        0xDA => { if( self.flags.carry == true)  { self.jump(self.mmu.read16(self.programCounter)); } else { self.incPC(2) ; } },
+        0xE9 => { self.jump(self.mmu.read16(self.ReadRegister16(.HL))); },
 
         // JR n
         0x18 => { self.AddAndJump(); },
@@ -497,24 +488,24 @@ pub fn Tick(self: *Self) void {
         // CALL nn
         0xCD => {
             self.StackPush(.HL);
-            self.jump(self.ReadMemory(self.programCounter, 2));
+            self.jump(self.mmu.read16(self.programCounter));
         },
         // CALL cc,nn
         0xC4 => { if( self.flags.zero == false)
             self.StackPush(.HL);
-            self.jump(self.ReadMemory(self.programCounter, 2));
+            self.jump(self.mmu.read16(self.programCounter));
         },
         0xCC => { if( self.flags.zero == true)
             self.StackPush(.HL);
-            self.jump(self.ReadMemory(self.programCounter, 2));
+            self.jump(self.mmu.read16(self.programCounter));
         },
         0xD4 => { if( self.flags.carry == false)
             self.StackPush(.HL);
-            self.jump(self.ReadMemory(self.programCounter, 2));
+            self.jump(self.mmu.read16(self.programCounter));
         },
         0xDC => { if( self.flags.carry == true)
             self.StackPush(.HL);
-            self.jump(self.ReadMemory(self.programCounter, 2));
+            self.jump(self.mmu.read16(self.programCounter));
         },
 
         // RST
@@ -522,18 +513,18 @@ pub fn Tick(self: *Self) void {
 
         // RET
         // todo: RETI
-        0xC9, 0xD9 => { self.StackPop(.HL); self.jump(self.ReadRegister(.HL)); },
+        0xC9, 0xD9 => { self.StackPop(.HL); self.jump(self.ReadRegister16(.HL)); },
         // RET cc
-        0xC0 => { if( self.flags.zero == false) { self.StackPop(.HL); self.jump(self.ReadRegister(.HL)); } },
-        0xC8 => { if( self.flags.zero == true) { self.StackPop(.HL); self.jump(self.ReadRegister(.HL)); } },
-        0xD0 => {  if( self.flags.carry == false) { self.StackPop(.HL); self.jump(self.ReadRegister(.HL)); } },
-        0xD8 => { if( self.flags.carry == true) { self.StackPop(.HL); self.jump(self.ReadRegister(.HL)); } },
+        0xC0 => { if( self.flags.zero == false) { self.StackPop(.HL); self.jump(self.ReadRegister16(.HL)); } },
+        0xC8 => { if( self.flags.zero == true) { self.StackPop(.HL); self.jump(self.ReadRegister16(.HL)); } },
+        0xD0 => {  if( self.flags.carry == false) { self.StackPop(.HL); self.jump(self.ReadRegister16(.HL)); } },
+        0xD8 => { if( self.flags.carry == true) { self.StackPop(.HL); self.jump(self.ReadRegister16(.HL)); } },
 
         // RLA
         0x17 => {
             self.flags.halfCarry = false;
             self.flags.subtraction = false;
-            var A = self.ReadRegister(.A);
+            var A = self.ReadRegister16(.A);
             const bit7 = A & 0x80;
             A = A << 1;
             A = A & 0xFF;
@@ -546,7 +537,7 @@ pub fn Tick(self: *Self) void {
         0x1F => {
             self.flags.halfCarry = false;
             self.flags.subtraction = false;
-            var A = self.ReadRegister(.A);
+            var A = self.ReadRegister16(.A);
             const bit0 = A & 0x1;
             A = A >> 1;
             A += @as(u16, @intFromBool(self.flags.carry)) << 7;
@@ -569,7 +560,7 @@ pub fn Tick(self: *Self) void {
                     self.WriteRegister(@as(RegisterName, @enumFromInt(notPrefix - 0x10)), self.ReadRegister(@as(RegisterName, @enumFromInt(notPrefix - 0x10))));
                 },
                 0x16 => {
-                    self.WriteMemory(self.ReadRegister(.HL), self.RotateL(self.ReadMemory(self.ReadRegister(.HL), 1)), 1);
+                    self.mmu.write(self.ReadRegister16(.HL), self.RotateL(self.mmu.read(self.ReadRegister16(.HL))));
                 },
                 0x17 => {
                     self.WriteRegister(.A, self.ReadRegister(.A));
@@ -578,7 +569,7 @@ pub fn Tick(self: *Self) void {
                     self.WriteRegister(@as(RegisterName, @enumFromInt(notPrefix - 0x30)), self.swap(self.ReadRegister(@as(RegisterName, @enumFromInt(notPrefix - 0x30)))));
                 },
                 0x36 => {
-                    self.WriteMemory(self.ReadRegister(.HL), self.swap(self.ReadMemory(self.ReadRegister(.HL), 1)), 1);
+                    self.mmu.write(self.ReadRegister16(.HL), self.swap(self.mmu.read(self.ReadRegister16(.HL))));
                 },
                 0x37 => {
                     self.WriteRegister(.A, self.swap(self.ReadRegister(.A)));
@@ -605,54 +596,54 @@ pub fn loadBootConfig(self: *Self) void {
     self.WriteRegister(.HL, 0x014D);
 
     self.WriteRegister(.SP, 0xFFFE);
-    self.WriteMemory(0xFFFF, 0x0, 1); // IE
-    self.WriteMemory(0xFF4B, 0x0, 1); // WX
-    self.WriteMemory(0xFF4A, 0x0, 1); // WY
-    self.WriteMemory(0xFF49, 0xFF, 1); // OBP1
-    self.WriteMemory(0xFF48, 0xFF, 1); // OBP0
-    self.WriteMemory(0xFF47, 0xFC, 1); // BGP
-    self.WriteMemory(0xFF45, 0x0, 1); // LYC
-    self.WriteMemory(0xFF43, 0x0, 1); // SCX
-    self.WriteMemory(0xFF42, 0x0, 1); // SCY
-    self.WriteMemory(0xFF40, 0x91, 1); // LCDC
-    self.WriteMemory(0xFF26, 0xF1, 1); // NR52
-    self.WriteMemory(0xFF25, 0xF3, 1); // NR51
-    self.WriteMemory(0xFF24, 0x77, 1); // NR50
-    self.WriteMemory(0xFF23, 0xBF, 1); // NR30
-    self.WriteMemory(0xFF22, 0x0, 1); // NR43
-    self.WriteMemory(0xFF21, 0x0, 1); // NR42
-    self.WriteMemory(0xFF20, 0xFF, 1); // NR41
-    self.WriteMemory(0xFF1E, 0x0, 1); // NR33
-    self.WriteMemory(0xFF1C, 0x9F, 1); // NR32
-    self.WriteMemory(0xFF1B, 0xFF, 1); // NR31
-    self.WriteMemory(0xFF1A, 0x7F, 1); // NR30
-    self.WriteMemory(0xFF19, 0xBF, 1); // NR24
-    self.WriteMemory(0xFF17, 0x0, 1); // NR22
-    self.WriteMemory(0xFF16, 0x3F, 1); // NR21
-    self.WriteMemory(0xFF14, 0xBF, 1); // NR14
-    self.WriteMemory(0xFF12, 0xF3, 1); // NR12
-    self.WriteMemory(0xFF11, 0xBF, 1); // NR11
-    self.WriteMemory(0xFF10, 0x80, 1); // NR10
-    self.WriteMemory(0xFF07, 0x0, 1); // TAC
-    self.WriteMemory(0xFF06, 0x0, 1); // TMA
-    self.WriteMemory(0xFF05, 0x0, 1); // TIMA
+    self.mmu.write(0xFFFF, 0x0  ); // IE
+    self.mmu.write(0xFF4B, 0x0  ); // WX
+    self.mmu.write(0xFF4A, 0x0  ); // WY
+    self.mmu.write(0xFF49, 0xFF );  // OBP1
+    self.mmu.write(0xFF48, 0xFF );  // OBP0
+    self.mmu.write(0xFF47, 0xFC );  // BGP
+    self.mmu.write(0xFF45, 0x0  ); // LYC
+    self.mmu.write(0xFF43, 0x0  ); // SCX
+    self.mmu.write(0xFF42, 0x0  ); // SCY
+    self.mmu.write(0xFF40, 0x91 );  // LCDC
+    self.mmu.write(0xFF26, 0xF1 );  // NR52
+    self.mmu.write(0xFF25, 0xF3 );  // NR51
+    self.mmu.write(0xFF24, 0x77 );  // NR50
+    self.mmu.write(0xFF23, 0xBF );  // NR30
+    self.mmu.write(0xFF22, 0x0  ); // NR43
+    self.mmu.write(0xFF21, 0x0  ); // NR42
+    self.mmu.write(0xFF20, 0xFF );  // NR41
+    self.mmu.write(0xFF1E, 0x0  ); // NR33
+    self.mmu.write(0xFF1C, 0x9F );  // NR32
+    self.mmu.write(0xFF1B, 0xFF );  // NR31
+    self.mmu.write(0xFF1A, 0x7F );  // NR30
+    self.mmu.write(0xFF19, 0xBF );  // NR24
+    self.mmu.write(0xFF17, 0x0  ); // NR22
+    self.mmu.write(0xFF16, 0x3F );  // NR21
+    self.mmu.write(0xFF14, 0xBF );  // NR14
+    self.mmu.write(0xFF12, 0xF3 );  // NR12
+    self.mmu.write(0xFF11, 0xBF );  // NR11
+    self.mmu.write(0xFF10, 0x80 );  // NR10
+    self.mmu.write(0xFF07, 0x0  ); // TAC
+    self.mmu.write(0xFF06, 0x0  ); // TMA
+    self.mmu.write(0xFF05, 0x0  ); // TIMA
 
     self.programCounter = 0x100;
 
 }
 
-fn RotateL(self: *Self, value: u16) u16 {
+fn RotateL(self: *Self, value: u16) u8 {
     const C: u16 = if (self.flags.carry) 1 else 0;
     self.flags.carry = (value & 0x80) == 0x80;
-    return value * 2 + C;
+    return @truncate(value * 2 + C);
 }
 
 pub fn AddAndJump(self: *Self) void {
-    self.AddToHL(self.ReadMemory(self.programCounter, 1));
-    self.jump(self.ReadRegister(.HL));
+    self.AddToHL(self.mmu.read(self.programCounter));
+    self.jump(self.ReadRegister16(.HL));
 }
 pub fn AddToHL(self: *Self, value: u16) void {
-    const HL = self.ReadRegister(.HL);
+    const HL = self.ReadRegister16(.HL);
     self.WriteRegister(.HL, self.add(HL, value, 2, false));
 }
 pub fn jump(self: *Self, address: u16) void {
@@ -668,9 +659,9 @@ pub fn RegisterDecrement(self: *Self, register: RegisterName) void {
 fn dumpStack(self: *Self) void {
     std.debug.print("\n== Stack ==\n", .{});
     var stackPtrOffset: u16 = 0xFFFE;
-    const SP = self.ReadRegister(.SP);
+    const SP = self.ReadRegister16(.SP);
     while (stackPtrOffset > SP) : (stackPtrOffset -= 2) {
-        std.debug.print("{X}: {X} {X}\n", .{ stackPtrOffset, self.ReadMemory(stackPtrOffset, 1), self.ReadMemory(stackPtrOffset + 1, 1) });
+        std.debug.print("{X}: {X} {X}\n", .{ stackPtrOffset, self.mmu.read(stackPtrOffset), self.mmu.read(stackPtrOffset + 1) });
     }
     std.debug.print("== \\Stack ==\n", .{});
 }
@@ -680,12 +671,12 @@ pub fn dump(self: *Self, msg: []const u8) void {
     std.debug.print("TICK: {d} INST: {X}  ARG1: {X} ARG2: {X}", .{
         self.ticks,
         self.currentIntruction,
-        self.ReadMemory(self.programCounter+1, 1),
-        self.ReadMemory(self.programCounter+2, 1),
+        self.mmu.read(self.programCounter+1),
+        self.mmu.read(self.programCounter+2),
     });
     std.debug.print("PC: {X} SP: {X} Flags: {}\n", .{
         self.programCounter,
-        self.ReadRegister(.SP),
+        self.ReadRegister16(.SP),
         self.flags,
     });
 
@@ -693,7 +684,7 @@ pub fn dump(self: *Self, msg: []const u8) void {
         std.debug.print("{}: {X} => ({X})\n", .{
             @as(RegisterName, @enumFromInt(x)),
             self.registers.get(@enumFromInt(x)),
-            self.memory[self.registers.get(@enumFromInt(x))],
+            self.mmu.read(self.registers.get(@enumFromInt(x))),
         });
     }
 

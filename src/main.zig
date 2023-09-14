@@ -30,7 +30,7 @@ pub fn main() anyerror!void {
 
     FONT = rl.loadFont("./assets/fonts/FreeSans.ttf");
 
-    var cpu = CPU{};
+    var cpu = try CPU.init();
     try loadProgram("bully.gb", &cpu);
     cpu.loadBootConfig();
 
@@ -134,7 +134,7 @@ fn drawStack(cpu: *CPU, position: rl.Vector2) void {
     var labelOffset = position;
     const fontSize = 16;
     for (SP..stackPtrOffset) |i| {
-        rl.drawTextEx(FONT, rl.textFormat("%04x: %04x", .{ stackPtrOffset - i, cpu.ReadMemory(@as(u16, @intCast(i)), 2) }), labelOffset, fontSize, 2, rl.Color.sky_blue);
+        rl.drawTextEx(FONT, rl.textFormat("%04x: %04x", .{ stackPtrOffset - i, cpu.mmu.read(@intCast(i)) }), labelOffset, fontSize, 2, rl.Color.sky_blue);
 
         labelOffset.y += fontSize;
     }
@@ -150,9 +150,9 @@ fn drawCPU(cpu: *CPU, position: rl.Vector2) ! void {
     currentWritingPosition.y += fontHeight;
     rl.drawTextEx(FONT, rl.textFormat("Ins: %02x", .{cpu.currentIntruction}), currentWritingPosition, fontHeight, 2, rl.Color.sky_blue);
     currentWritingPosition.y += fontHeight;
-    rl.drawTextEx(FONT, rl.textFormat("Agr1: %02x", .{cpu.ReadMemory(cpu.currentIntruction+1, 1)}), currentWritingPosition, fontHeight, 2, rl.Color.sky_blue);
+    rl.drawTextEx(FONT, rl.textFormat("Agr1: %02x", .{cpu.mmu.read(cpu.currentIntruction+1)}), currentWritingPosition, fontHeight, 2, rl.Color.sky_blue);
     currentWritingPosition.y += fontHeight;
-    rl.drawTextEx(FONT, rl.textFormat("Arg2: %02x", .{cpu.ReadMemory(cpu.currentIntruction+2, 1)}), currentWritingPosition, fontHeight, 2, rl.Color.sky_blue);
+    rl.drawTextEx(FONT, rl.textFormat("Arg2: %02x", .{cpu.mmu.read(cpu.currentIntruction+2)}), currentWritingPosition, fontHeight, 2, rl.Color.sky_blue);
     currentWritingPosition.y += fontHeight;
 
     //draw registers
@@ -183,9 +183,9 @@ fn loadProgram(path: []const u8, cpu: *CPU) !void {
     const data = try std.fs.cwd().readFileAlloc(allocator, path, 64000);
     defer allocator.free(data);
 
-    var i: u16 = 0;
+    var i: u8 = 0;
     while (i < data.len) : (i += 1) {
-        cpu.WriteMemory(i, @as(u16, data[i]), 1);
+        cpu.mmu.write(i,  data[i]);
     }
 }
 
@@ -198,7 +198,7 @@ fn drawMemory(cpu: *CPU, position: rl.Vector2, start: u16, end: u16, perRow: u16
 
     for (0 .. len) |i| {
         const addr = i + start;
-        const val: u8 = @as(u8, @intCast(cpu.ReadMemory(@as(u16, @intCast(addr)), 1)));
+        const val: u8 = @as(u8, @intCast(cpu.mmu.read(@as(u16, @intCast(addr)))));
         tint = rl.colorTint(rl.Color.init(val, val, val, 255), color);
         if (cpu.programCounter == addr) {
             tint = rl.Color.green;
@@ -225,7 +225,7 @@ fn drawSprite(cpu: *CPU, position: rl.Vector2, index: usize) !void {
 
     for (0 .. 8) |i| {
         addr  = @as(u16,@intCast(0x8000 + (index*16) + i));
-        try sprite.append(cpu.ReadMemory(addr, 2));
+        try sprite.append(cpu.mmu.read16(addr));
     }
 
     var block = rl.Rectangle.init(drawingPosition.x, drawingPosition.y, blockSize, blockSize);

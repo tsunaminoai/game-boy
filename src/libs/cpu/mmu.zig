@@ -1,7 +1,7 @@
 const std = @import("std");
 
 const Self = @This();
-const BUFFER_SIZE: usize = 0x8000;
+const BUFFER_SIZE: usize = 0xFFFF;
 
 blocks: extern struct {
     internal_rom: [BUFFER_SIZE]u8 align(8),
@@ -23,7 +23,7 @@ pub fn read(self: *Self, address: u16) u8 {
 }
 
 pub fn write16(self: *Self, address: u16, value: u16) void {
-    std.debug.assert(address <= BUFFER_SIZE - 2);
+    std.debug.assert(address <= BUFFER_SIZE - 1);
 
     self.write(address, @truncate(0xff & value));
     self.write(address + 1, @truncate(0xff & (value >> 8)));
