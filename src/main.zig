@@ -180,7 +180,7 @@ fn loadProgram(path: []const u8, cpu: *CPU) !void {
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
-    const data = try std.fs.cwd().readFileAlloc(allocator, path, 64000);
+    const data = try std.fs.cwd().readFileAlloc(allocator, path, 0xffff);
     defer allocator.free(data);
 
     var i: u8 = 0;
