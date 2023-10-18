@@ -1,69 +1,115 @@
-/// This is going to be a general purpose 16 bit register
 const std = @import("std");
 
-const RegisterMethods = @This();
-
-const Size = enum { Byte, Double };
-
-fn Register8() type {
+const RegisterSegment = enum { MSB, LSB };
+pub fn HalfRegister(comptime segment: RegisterSegment) type {
     return struct {
-        value: u32 = 0,
-
-        const Self = @This();
-        var parent: Register(.Double) = undefined;
-
-        pub usingnamespace RegisterMethods;
-    };
-}
-
-fn Register16() type {
-    const upper = Register(.Byte){};
-    const lower = Register(.Byte){};
-
-    return struct {
-        value: u32 = 0,
-        upper: Register(.Byte) = upper,
-        lower: Register(.Byte) = lower,
+        value: u8,
+        parent: *Register(),
+        segment: RegisterSegment = segment,
 
         const Self = @This();
 
-        pub usingnamespace RegisterMethods;
+        pub fn init(parent: *Register(), value: u8) Self {
+            return Self{
+                .value = value,
+                .parent = parent,
+            };
+        }
+
+        pub fn set(self: *Self, value: u8) void {
+            self.value = value;
+
+            var newValue: u16 = value;
+
+            self.parent.value = switch (self.segment) {
+                .MSB => (self.parent.value & 0x00FF) | newValue << 8,
+                .LSB => (self.parent.value & 0xFF00) | newValue,
+            };
+        }
+
+        pub fn setRaw(self: *Self, value: u8) void {
+            self.value = value;
+        }
+        pub fn format(
+            self: Self,
+            comptime _: []const u8,
+            _: std.fmt.FormatOptions,
+            writer: anytype,
+        ) !void {
+            try writer.print("{X:0>2}", .{self.value});
+        }
+    };
+}
+pub fn Register() type {
+    return struct {
+        value: u16,
+        msb: HalfRegister(.MSB) = undefined,
+        lsb: HalfRegister(.LSB) = undefined,
+
+        const Self = @This();
+
+        pub fn init(initialValue: u16) Self {
+            var reg = Self{
+                .value = initialValue,
+            };
+            return reg;
+        }
+        pub fn setParents(self: *Self) void {
+            self.msb = HalfRegister(.MSB).init(self, Self.getSegment(self.value, .MSB));
+            self.lsb = HalfRegister(.LSB).init(self, Self.getSegment(self.value, .LSB));
+        }
+        pub fn getMSB(self: *Self) *HalfRegister(.MSB) {
+            return &self.msb;
+        }
+        pub fn getLSB(self: *Self) *HalfRegister(.LSB) {
+            return &self.lsb;
+        }
+
+        pub fn getSegment(value: u16, segment: RegisterSegment) u8 {
+            return switch (segment) {
+                .MSB => @as(u8, @truncate(value >> 8)),
+                .LSB => @as(u8, @truncate(value & 0xFF)),
+            };
+        }
+
+        pub fn set(self: *Self, value: u16) void {
+            self.value = value;
+            self.msb.setRaw(Self.getSegment(value, .MSB));
+            self.lsb.setRaw(Self.getSegment(value, .LSB));
+        }
+
+        pub fn format(
+            self: Self,
+            comptime _: []const u8,
+            _: std.fmt.FormatOptions,
+            writer: anytype,
+        ) !void {
+            try writer.print("{X:0>4} [{}][{}]\n", .{ self.value, self.msb, self.lsb });
+        }
     };
 }
 
-fn Register(comptime size: Size) type {
-    switch (size) {
-        .Byte => { return Register8(); },
-        .Double => { return Register16(); },
-    }
-}
+const eql = std.testing.expectEqual;
+test "Simple regsiter" {
+    var AF = Register().init(0xBEEF);
+    AF.setParents();
+    var A = AF.getMSB();
+    var F = AF.getLSB();
+    try eql(&AF, A.parent);
+    try eql(&AF, F.parent);
 
-pub fn getUpper(self: *Register(.Double)) *Register(.Byte) {
-    return &self.upper;
-}
-pub fn getLower(self: *Register(.Double)) *Register(.Byte) {
-    return &self.lower;
-}
+    try eql(AF.value, 0xBEEF);
 
-pub fn set(self: *Register(.Double), value: u32) void {
-    self.value = value;
-    self.lower.value = value & 0xff;
-    self.upper.value = (value >> 8) & 0xff;
-}
+    try eql(A.value, 0xBE);
+    try eql(F.value, 0xEF);
 
-test "8bit registers" {
-    var r = Register(.Byte){};
-    try std.testing.expect(r.value == 0);
-}
+    A.set(0xDE);
+    try eql(A.value, 0xDE);
+    try eql(AF.value, 0xDEEF);
 
-test "16bit registers" {
-    var AF = Register(.Double){};
-    var A = AF.getUpper();
-    var F = AF.getLower();
-    try std.testing.expect(AF.value == 0);
+    F.set(0xAD);
+    try eql(F.value, 0xAD);
+    try eql(AF.value, 0xDEAD);
 
-    AF.set(0xBEEF);
-    try std.testing.expectEqual(AF.value, 0xBEEF);
-    try std.testing.expectEqual(A.value, 0xBE);
-    try std.testing.expectEqual(F.value, 0xEF);
+    std.debug.print("AF: {}\n", .{AF});
 }
