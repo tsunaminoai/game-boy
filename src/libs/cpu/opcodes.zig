@@ -10,6 +10,19 @@ const Category = enum {
     wordMath,
     bit,
     illegal,
+
+    pub fn color(self: @This()) []const u8 {
+        return "\x1b[" ++ switch (self) {
+            .control => "31m", //red
+            .jump => "91m", //salmon
+            .byteLoad => "94m", //purple
+            .wordLoad => "92m", //green
+            .byteMath => "93m", //yellow
+            .wordMath => "95m", //magenta
+            .bit => "96m", //cyan
+            .illegal => "97m", //greyish
+        };
+    }
 };
 const AddressingMethod = enum {
     immediate,
@@ -27,7 +40,7 @@ const Instruction = struct {
     name: []const u8,
 };
 
-const instructions: []Instruction = &[_]Instruction{
+const instructions = [256]Instruction{
     // 0x0X
     .{ .opcode = 0x00, .name = "NOP", .length = 1, .cycles = 4, .addressing = .none, .category = .control },
     .{ .opcode = 0x01, .name = "LD BC,d16", .length = 3, .cycles = 12, .addressing = .immediate, .category = .wordLoad },
@@ -316,3 +329,26 @@ const instructions: []Instruction = &[_]Instruction{
     .{ .opcode = 0xEE, .name = "CP d8", .length = 2, .cycles = 8, .addressing = .immediate, .category = .byteMath },
     .{ .opcode = 0xEF, .name = "RST 38H", .length = 1, .cycles = 16, .addressing = .none, .category = .jump },
 };
+comptime {
+    std.debug.assert(instructions.len == 256);
+}
+
+pub fn printOpcodes() void {
+    std.debug.print("\n", .{});
+
+    for (instructions) |op| {
+        std.debug.print("{s}{s}", .{ op.category.color(), op.name });
+        for (12 - op.name.len) |_|
+            std.debug.print(" ", .{});
+
+        // if (op.name.len <= 4)
+        //     std.debug.print("\t", .{});
+
+        if (op.opcode & 0xF == 0xF)
+            std.debug.print("\x1b[0m\n", .{});
+    }
+}
+
+test "Opcodes" {
+    printOpcodes();
+}
