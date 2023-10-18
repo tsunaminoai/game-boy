@@ -1,6 +1,8 @@
 const std = @import("std");
 const Register = @import("register.zig");
 
+/// Categories for opcodes
+/// Inspired by https://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html
 const Category = enum {
     control,
     jump,
@@ -11,6 +13,8 @@ const Category = enum {
     bit,
     illegal,
 
+    /// Prints the ascii escape secquence for the color of the category
+    /// Dont forget to send '\x1b[0m' when completing the output
     pub fn color(self: @This()) []const u8 {
         return "\x1b[" ++ switch (self) {
             .control => "31m", //red
@@ -24,6 +28,8 @@ const Category = enum {
         };
     }
 };
+
+/// What kind of addressing will be used
 const AddressingMethod = enum {
     immediate,
     absolute,
@@ -31,6 +37,7 @@ const AddressingMethod = enum {
     none,
 };
 
+/// Instruction object
 const Instruction = struct {
     opcode: u8,
     length: u3,
@@ -40,6 +47,7 @@ const Instruction = struct {
     name: []const u8,
 };
 
+// Load 'em up
 const instructions = [256]Instruction{
     // 0x0X
     .{ .opcode = 0x00, .name = "NOP", .length = 1, .cycles = 4, .addressing = .none, .category = .control },
@@ -333,17 +341,16 @@ comptime {
     std.debug.assert(instructions.len == 256);
 }
 
+/// Prints the known opcodes in terminal
 pub fn printOpcodes() void {
     std.debug.print("\n", .{});
 
     for (instructions) |op| {
         std.debug.print("{s}{s}", .{ op.category.color(), op.name });
+        // padding
         for (12 - op.name.len) |_|
             std.debug.print(" ", .{});
-
-        // if (op.name.len <= 4)
-        //     std.debug.print("\t", .{});
-
+        // newline every 16 intstructions
         if (op.opcode & 0xF == 0xF)
             std.debug.print("\x1b[0m\n", .{});
     }
