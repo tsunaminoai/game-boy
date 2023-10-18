@@ -21,7 +21,7 @@ pub fn HalfRegister(comptime segment: RegisterSegment) type {
                 .parent = parent,
             };
         }
-        /// Sets the halfregister's internal value. When called, the parent
+        /// Sets the HalfRegister's internal value. When called, the parent
         /// 16bit register's value is updated directly
         pub fn set(self: *Self, value: u8) void {
             self.value = value;
