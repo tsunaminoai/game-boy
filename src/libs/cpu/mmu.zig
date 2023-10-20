@@ -4,40 +4,37 @@ fn StaticMemory(comptime name: []const u8, comptime size: usize) type {
     return struct {
         name: []const u8 = name,
         size: usize = size,
-        stream: *std.io.FixedBufferStream([]u8),
 
         const Self = @This();
 
         var data: [size]u8 = [_]u8{0} ** size;
 
         pub fn init() Self {
-            var stream: std.io.FixedBufferStream([]u8) = std.io.fixedBufferStream(&data);
-            return Self{
-                .stream = &stream,
-            };
+            return Self{};
         }
         pub fn read(self: *Self, address: u16, len: u2) !u16 {
+            _ = self;
             if (address + len > size) {
                 return error.AddressOutOfRange;
             } else {
-                var reader = self.stream.reader();
-                try self.stream.seekTo(address);
                 return switch (len) {
-                    1 => try reader.readByte(),
-                    2 => try reader.readIntBig(u16),
+                    1 => data[address],
+                    2 => std.mem.readIntSliceBig(u16, data[address .. address + 2]),
                     else => error.InvalidValueLength,
                 };
             }
         }
         pub fn write(self: *Self, address: u16, len: u2, value: u16) !void {
+            _ = self;
             if (address + len > data.len) {
                 return error.AddressOutOfRange;
             } else {
-                var writer = self.stream.writer();
-                try self.stream.seekTo(address);
                 switch (len) {
-                    1 => try writer.writeByte(@as(u8, @truncate(value))),
-                    2 => try writer.writeIntBig(u16, value),
+                    1 => data[address] = @as(u8, @truncate(value)),
+                    2 => {
+                        data[address] = @as(u8, @truncate(value >> 8));
+                        data[address + 1] = @as(u8, @truncate(value & 0xFF));
+                    },
                     else => return error.InvalidValueLength,
                 }
             }
@@ -48,8 +45,9 @@ fn StaticMemory(comptime name: []const u8, comptime size: usize) type {
             _: std.fmt.FormatOptions,
             writer: anytype,
         ) !void {
-            for (self.stream.buffer, 0..) |byte, i| {
-                if (i >= self.stream.buffer.len) {
+            _ = self;
+            for (data, 0..) |byte, i| {
+                if (i >= data.len) {
                     break;
                 }
                 if (i % 16 == 0) {
