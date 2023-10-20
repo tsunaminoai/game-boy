@@ -1,141 +1,104 @@
 const std = @import("std");
 
-/// Whather a halfregister is considering itself an upper or lower byte
-const RegisterSegment = enum { MSB, LSB };
+var data = [_]u8{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+af: *u16 = @as(*u16, @ptrCast(@alignCast(data[0..2]))),
+a: *u8 = &data[1],
+f: *u8 = &data[0],
 
-/// Half registers are for representing the concept that gameboy 16bit registers
-/// are really 2 8bit registers in a trechcoat. Thus, if the H register is set
-/// to "0xBE" and the L register is set to "0xEF" then the HL register should
-/// read "0xBEEF"
-pub fn HalfRegister(comptime segment: RegisterSegment) type {
-    return struct {
-        value: u8,
-        parent: *Register(),
-        segment: RegisterSegment = segment,
+bc: *u16 = @as(*u16, @ptrCast(@alignCast(data[2..4]))),
+b: *u8 = &data[3],
+c: *u8 = &data[2],
 
-        const Self = @This();
+de: *u16 = @as(*u16, @ptrCast(@alignCast(data[4..6]))),
+d: *u8 = &data[5],
+e: *u8 = &data[4],
 
-        pub fn init(parent: *Register(), value: u8) Self {
-            return Self{
-                .value = value,
-                .parent = parent,
-            };
-        }
-        /// Sets the HalfRegister's internal value. When called, the parent
-        /// 16bit register's value is updated directly
-        pub fn set(self: *Self, value: u8) void {
-            self.value = value;
+hl: *u16 = @as(*u16, @ptrCast(@alignCast(data[6..8]))),
+h: *u8 = &data[7],
+l: *u8 = &data[6],
 
-            var newValue: u16 = value;
+sp: *u16 = @as(*u16, @ptrCast(@alignCast(data[8..10]))),
 
-            self.parent.value = switch (self.segment) {
-                .MSB => (self.parent.value & 0x00FF) | newValue << 8,
-                .LSB => (self.parent.value & 0xFF00) | newValue,
-            };
-        }
+pc: *u16 = @as(*u16, @ptrCast(@alignCast(data[10..12]))),
 
-        // internal function for the parent 16bit register to call to set child values
-        fn setRaw(self: *Self, value: u8) void {
-            self.value = value;
-        }
+const Self = @This();
 
-        // formatter
-        pub fn format(
-            self: Self,
-            comptime _: []const u8,
-            _: std.fmt.FormatOptions,
-            writer: anytype,
-        ) !void {
-            try writer.print("{X:0>2}", .{self.value});
-        }
-    };
+pub fn init() Self {
+    return Self{};
 }
 
-/// Registers are represented as u16 bit registers with a MSB and LSB represented
-/// as HalfRegsiters. Modifying either the parent or child will update the other.
-pub fn Register() type {
-    return struct {
-        value: u16,
-        msb: HalfRegister(.MSB) = undefined,
-        lsb: HalfRegister(.LSB) = undefined,
-
-        const Self = @This();
-
-        /// initiializes the register. setChildren() must be called *directly after* this
-        pub fn init(initialValue: u16) Self {
-            var reg = Self{
-                .value = initialValue,
-            };
-            return reg;
-        }
-
-        /// Sets the up the children. Best way I know how to do this as placing
-        /// it in the init method causes additional phantom registers to appear.
-        pub fn setChildren(self: *Self) void {
-            self.msb = HalfRegister(.MSB).init(self, Self.getSegment(self.value, .MSB));
-            self.lsb = HalfRegister(.LSB).init(self, Self.getSegment(self.value, .LSB));
-        }
-
-        /// Returns a pointer to the MSB. Thereafter, the MSB can be considered like any other register
-        /// ex. `var H = HL.getMSB();`
-        pub fn getMSB(self: *Self) *HalfRegister(.MSB) {
-            return &self.msb;
-        }
-
-        /// Returns a pointer to the LSB. Thereafter, the LSB can be considered like any other register
-        /// ex. `var L = HL.getLSB();`
-        pub fn getLSB(self: *Self) *HalfRegister(.LSB) {
-            return &self.lsb;
-        }
-
-        /// Retrived the desired segment a u16 int
-        pub fn getSegment(value: u16, segment: RegisterSegment) u8 {
-            return switch (segment) {
-                .MSB => @as(u8, @truncate(value >> 8)),
-                .LSB => @as(u8, @truncate(value & 0xFF)),
-            };
-        }
-
-        /// Sets the value of the register. Also updates the children.
-        pub fn set(self: *Self, value: u16) void {
-            self.value = value;
-            self.msb.setRaw(Self.getSegment(value, .MSB));
-            self.lsb.setRaw(Self.getSegment(value, .LSB));
-        }
-
-        // formatter
-        pub fn format(
-            self: Self,
-            comptime _: []const u8,
-            _: std.fmt.FormatOptions,
-            writer: anytype,
-        ) !void {
-            try writer.print("{X:0>4} [{}][{}]\n", .{ self.value, self.msb, self.lsb });
-        }
+pub const RegisterID = enum { AF, DE, BC, HL, A, B, C, D, E, H, L, SP, PC };
+pub fn writeReg(self: *Self, reg: RegisterID, value: u16) !void {
+    switch (reg) {
+        .AF => self.af.* = value,
+        .BC => self.bc.* = value,
+        .DE => self.de.* = value,
+        .HL => self.hl.* = value,
+        else => |r| {
+            const value8 = @as(u8, @truncate(value));
+            switch (r) {
+                .A => self.a.* = value8,
+                .B => self.b.* = value8,
+                .C => self.c.* = value8,
+                .D => self.d.* = value8,
+                .E => self.e.* = value8,
+                .H => self.h.* = value8,
+                .L => self.l.* = value8,
+                else => return error.InvalidRegister,
+            }
+        },
+    }
+}
+pub fn readReg(self: *Self, reg: RegisterID) !u16 {
+    return switch (reg) {
+        .AF => self.af.*,
+        .BC => self.bc.*,
+        .DE => self.de.*,
+        .HL => self.hl.*,
+        .A => self.a.*,
+        .B => self.b.*,
+        .C => self.c.*,
+        .D => self.d.*,
+        .E => self.e.*,
+        .H => self.h.*,
+        .L => self.l.*,
+        else => return error.InvalidRegister,
     };
 }
 
 const eql = std.testing.expectEqual;
-test "Simple regsiter" {
-    var AF = Register().init(0xBEEF);
-    AF.setChildren();
-    var A = AF.getMSB();
-    var F = AF.getLSB();
-    try eql(&AF, A.parent);
-    try eql(&AF, F.parent);
+test "More Registers" {
+    var reg = init();
+    reg.b.* = 0xBE;
+    reg.c.* = 0xEF;
 
-    try eql(AF.value, 0xBEEF);
+    try eql(reg.bc.*, 0xBEEF);
 
-    try eql(A.value, 0xBE);
-    try eql(F.value, 0xEF);
+    reg.bc.* = 0xDEAD;
+    try eql(reg.b.*, 0xDE);
+    try eql(reg.c.*, 0xAD);
 
-    A.set(0xDE);
-    try eql(A.value, 0xDE);
-    try eql(AF.value, 0xDEEF);
+    try reg.writeReg(.B, 0xB0);
+    try reg.writeReg(.C, 0xDE);
 
-    F.set(0xAD);
-    try eql(F.value, 0xAD);
-    try eql(AF.value, 0xDEAD);
+    try eql(try reg.readReg(.BC), 0xB0DE);
+    try reg.writeReg(.BC, 0xF00F);
+    try eql(try reg.readReg(.B), 0xF0);
+    try eql(try reg.readReg(.C), 0x0F);
 
-    std.debug.print("AF: {}\n", .{AF});
+    std.debug.print("{s}\n", .{reg});
+}
+
+pub fn format(
+    self: Self,
+    comptime _: []const u8,
+    _: std.fmt.FormatOptions,
+    writer: anytype,
+) !void {
+    try writer.print("\n|A {X:0>2} |F {X:0>2} | = {X:0>4}\n", .{ self.a.*, self.f.*, self.af.* });
+    try writer.print("|B {X:0>2} |C {X:0>2} | = {X:0>4}\n", .{ self.b.*, self.c.*, self.bc.* });
+    try writer.print("|D {X:0>2} |E {X:0>2} | = {X:0>4}\n", .{ self.d.*, self.e.*, self.de.* });
+    try writer.print("|H {X:0>2} |L {X:0>2} | = {X:0>4}\n", .{ self.h.*, self.l.*, self.hl.* });
+    try writer.print("|SP   {X:0>4}   |\n", .{self.sp.*});
+    try writer.print("|PC   {X:0>4}   |\n", .{self.pc.*});
 }

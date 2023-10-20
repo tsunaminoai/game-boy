@@ -3,16 +3,39 @@ const std = @import("std");
 const BusError = error{
     InvalidAddress,
 };
-const Device = struct {
-    startAddress: u16,
-    endAddress: u16,
-    // read: fn (self: *Device, address: u16) BusError!u16,
-    // write: fn (self: *Device, address: u16, value: u16) BusError!void,
-};
+
+pub fn Device() type {
+    return struct {
+        endAddress: u16,
+        startAddress: u16,
+        name: []const u8,
+        data: []u8 = undefined,
+        alloc: std.mem.Allocator,
+        read: ?*const fn (self: *Self, address: u16) BusError!u16 = null,
+        write: ?*const fn (self: *Self, address: u16, value: u16) BusError!void = null,
+
+        const Self = @This();
+
+        pub fn init(name: []const u8, start: u16, end: u16, alloc: std.mem.Allocator) !Self {
+            const size = end - start;
+            var d = try alloc.alloc(u8, size);
+            return Self{
+                .name = name,
+                .startAddress = start,
+                .endAddress = end,
+                .alloc = alloc,
+                .data = d,
+            };
+        }
+
+        pub fn deinit(self: *Self) void {
+            self.alloc.free(self.data);
+        }
+    };
+}
 
 pub fn Bus() type {
     return struct {
-        devices: std.ArrayList(Device) = undefined,
         arena: std.mem.Allocator,
 
         const Self = @This();
@@ -20,14 +43,13 @@ pub fn Bus() type {
         pub fn init(arena: std.mem.Allocator) Self {
             return Self{
                 .arena = arena,
-                .devices = std.ArrayList(Device).init(arena),
             };
         }
         pub fn deinit(self: *Self) void {
-            self.devices.deinit();
+            _ = self;
         }
 
-        pub fn getDevice(self: *Self, address: u16) u8 {
+        pub fn getDevice(self: *Self, address: u16) !Device {
             _ = self;
             return switch (address) {
                 0x0000...0x3FFF => {}, // 16k rom bank 0    ¯|_ 32k cart
@@ -48,8 +70,18 @@ pub fn Bus() type {
     };
 }
 
+const eql = std.testing.expectEqual;
 test "Bus" {
     var gpa = std.testing.allocator;
     var bus = Bus().init(gpa);
     defer bus.deinit();
+}
+
+test "Device" {
+    var gpa = std.testing.allocator;
+
+    var d = try Device().init("Test", 0x0, 0x100, gpa);
+    defer d.deinit();
+    try eql(d.name, "Test");
+    try eql(d.data.len, 0x100);
 }

@@ -3,7 +3,7 @@ const Register = @import("register.zig");
 
 /// Categories for opcodes
 /// Inspired by https://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html
-const Category = enum {
+pub const Category = enum {
     control,
     jump,
     byteLoad,
@@ -30,7 +30,7 @@ const Category = enum {
 };
 
 /// What kind of addressing will be used
-const AddressingMethod = enum {
+pub const AddressingMethod = enum {
     immediate,
     absolute,
     relative,
@@ -38,20 +38,22 @@ const AddressingMethod = enum {
 };
 
 /// Instruction object
-const Instruction = struct {
+pub const Instruction = struct {
     opcode: u8,
     length: u3,
     cycles: u8,
     addressing: AddressingMethod,
     category: Category,
     name: []const u8,
+    source: ?Register.RegisterID = null,
+    destination: ?Register.RegisterID = null,
 };
 
 // Load 'em up
-const instructions = [256]Instruction{
+pub const instructions = [256]Instruction{
     // 0x0X
     .{ .opcode = 0x00, .name = "NOP", .length = 1, .cycles = 4, .addressing = .none, .category = .control },
-    .{ .opcode = 0x01, .name = "LD BC,d16", .length = 3, .cycles = 12, .addressing = .immediate, .category = .wordLoad },
+    .{ .opcode = 0x01, .name = "LD BC,d16", .length = 3, .cycles = 12, .addressing = .immediate, .category = .wordLoad, .destination = .BC },
     .{ .opcode = 0x02, .name = "LD (BC),A", .length = 1, .cycles = 8, .addressing = .absolute, .category = .byteLoad },
     .{ .opcode = 0x03, .name = "INC BC", .length = 1, .cycles = 8, .addressing = .none, .category = .wordMath },
     .{ .opcode = 0x04, .name = "INC B", .length = 1, .cycles = 4, .addressing = .none, .category = .byteMath },
