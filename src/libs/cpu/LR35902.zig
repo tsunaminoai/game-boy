@@ -136,7 +136,7 @@ test "CPU: Tick & Fetch" {
     try cpu.registers.writeReg(.A, 0x42);
 
     // manually write the instructions to ram
-    try cpu.ram.write(0x0, 1, 0xEC); // LD (DE),A
+    try cpu.ram.write(0x0, 1, 0x12); // LD (DE),A
     try cpu.ram.write(0x1, 2, 0x1E11); //LD E,d8
 
     try cpu.tick();
