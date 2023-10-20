@@ -65,8 +65,8 @@ test "StaticMemory" {
     try mem.write(0x0, 1, 0xBE);
     try mem.write(0x1, 2, 0xEFED);
 
-    std.debug.print("{any}\n", .{mem});
-    std.debug.print("{X:0>4}\n", .{try mem.read(0x2, 1)});
+    // std.debug.print("{any}\n", .{mem});
+    // std.debug.print("{X:0>4}\n", .{try mem.read(0x2, 1)});
     try eql(try mem.read(0x0, 2), 0xBEEF);
     try eql(try mem.read(0x2, 1), 0xED);
 }

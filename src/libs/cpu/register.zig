@@ -86,7 +86,7 @@ test "More Registers" {
     try eql(try reg.readReg(.B), 0xF0);
     try eql(try reg.readReg(.C), 0x0F);
 
-    std.debug.print("{s}\n", .{reg});
+    // std.debug.print("{s}\n", .{reg});
 }
 
 pub fn format(

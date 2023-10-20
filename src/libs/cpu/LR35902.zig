@@ -27,7 +27,16 @@ pub fn CPU() type {
                 else => unreachable,
             };
             try self.registers.writeReg(inst.destination.?, operand);
-            std.debug.print("Operand: {X:0>4}\n", .{operand});
+            // std.debug.print("Operand: {X:0>4}\n", .{operand});
+        }
+        pub fn loadAbsolute(self: *Self, inst: Instruction) !void {
+            const address = try self.registers.readReg(inst.destination.?);
+            const value = try self.registers.readReg(inst.source.?);
+            // std.debug.print(
+            //     "Writing from ({s}) 0x{X:0>2} to ({s})0x{X:0>4} \n",
+            //     .{ @tagName(inst.destination.?), value, @tagName(inst.source.?), address },
+            // );
+            try self.ram.write(address, 1, value);
         }
     };
 }
@@ -35,8 +44,17 @@ pub fn CPU() type {
 const eql = std.testing.expectEqual;
 test "CPU: LoadImmediate" {
     var cpu = CPU().init();
-    try cpu.ram.write(0x0000, 2, 0xBEEF);
+    try cpu.ram.write(0x0, 2, 0xBEEF);
     const inst = InstructionList[0x01];
     try cpu.loadImmediate(inst);
     try eql(cpu.registers.readReg(.BC), 0xBEEF);
+}
+
+test "CPU: LoadAbsolute" {
+    var cpu = CPU().init();
+    try cpu.registers.writeReg(.A, 0x42);
+    try cpu.registers.writeReg(.BC, 0x1337);
+    const inst = InstructionList[0x02];
+    try cpu.loadAbsolute(inst);
+    try eql(try cpu.ram.read(0x1337, 1), 0x42);
 }

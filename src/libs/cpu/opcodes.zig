@@ -54,7 +54,7 @@ pub const instructions = [256]Instruction{
     // 0x0X
     .{ .opcode = 0x00, .name = "NOP", .length = 1, .cycles = 4, .addressing = .none, .category = .control },
     .{ .opcode = 0x01, .name = "LD BC,d16", .length = 3, .cycles = 12, .addressing = .immediate, .category = .wordLoad, .destination = .BC },
-    .{ .opcode = 0x02, .name = "LD (BC),A", .length = 1, .cycles = 8, .addressing = .absolute, .category = .byteLoad },
+    .{ .opcode = 0x02, .name = "LD (BC),A", .length = 1, .cycles = 8, .addressing = .absolute, .category = .byteLoad, .source = .A, .destination = .BC },
     .{ .opcode = 0x03, .name = "INC BC", .length = 1, .cycles = 8, .addressing = .none, .category = .wordMath },
     .{ .opcode = 0x04, .name = "INC B", .length = 1, .cycles = 4, .addressing = .none, .category = .byteMath },
     .{ .opcode = 0x05, .name = "DEC B", .length = 1, .cycles = 4, .addressing = .none, .category = .byteMath },
@@ -359,5 +359,5 @@ pub fn printOpcodes() void {
 }
 
 test "Opcodes" {
-    printOpcodes();
+    // printOpcodes();
 }
