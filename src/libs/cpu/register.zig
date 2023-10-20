@@ -27,7 +27,21 @@ pub fn init() Self {
     return Self{};
 }
 
-pub const RegisterID = enum { AF, DE, BC, HL, A, B, C, D, E, H, L, SP, PC };
+pub const RegisterID = enum {
+    AF,
+    DE,
+    BC,
+    HL,
+    SP,
+    PC,
+    A,
+    B,
+    C,
+    D,
+    E,
+    H,
+    L,
+};
 pub fn writeReg(self: *Self, reg: RegisterID, value: u16) !void {
     switch (reg) {
         .AF => self.af.* = value,
