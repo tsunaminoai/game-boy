@@ -34,6 +34,8 @@ pub fn writeReg(self: *Self, reg: RegisterID, value: u16) !void {
         .BC => self.bc.* = value,
         .DE => self.de.* = value,
         .HL => self.hl.* = value,
+        .PC => self.pc.* = value,
+        .SP => self.sp.* = value,
         else => |r| {
             const value8 = @as(u8, @truncate(value));
             switch (r) {
@@ -55,6 +57,8 @@ pub fn readReg(self: *Self, reg: RegisterID) !u16 {
         .BC => self.bc.*,
         .DE => self.de.*,
         .HL => self.hl.*,
+        .PC => self.pc.*,
+        .SP => self.sp.*,
         .A => self.a.*,
         .B => self.b.*,
         .C => self.c.*,
@@ -62,7 +66,6 @@ pub fn readReg(self: *Self, reg: RegisterID) !u16 {
         .E => self.e.*,
         .H => self.h.*,
         .L => self.l.*,
-        else => return error.InvalidRegister,
     };
 }
 
