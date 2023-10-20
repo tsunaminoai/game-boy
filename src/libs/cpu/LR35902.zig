@@ -34,10 +34,17 @@ pub fn CPU() type {
         pub fn fetch(self: *Self) !void {
             const opcode = try self.ram.read(self.programCounter.*, 1);
             self.currentInstruction = InstructionList[opcode];
+            if (self.currentInstruction.?.category == .illegal) {
+                std.debug.print("ILLEGAL OPCODE: 0x{X:0>2}\n", .{opcode});
+            }
+
             self.totalCycles += self.currentInstruction.?.cycles;
             self.remainingCycles += self.currentInstruction.?.cycles;
             self.programCounter.* += 1;
-            try self.execute();
+            self.execute() catch |err| {
+                std.debug.print("Failed executing instruction: {any}", .{self.currentInstruction.?});
+                return err;
+            };
         }
 
         pub fn execute(self: *Self) !void {
@@ -129,7 +136,7 @@ test "CPU: Tick & Fetch" {
     try cpu.registers.writeReg(.A, 0x42);
 
     // manually write the instructions to ram
-    try cpu.ram.write(0x0, 1, 0x12); // LD (DE),A
+    try cpu.ram.write(0x0, 1, 0xEC); // LD (DE),A
     try cpu.ram.write(0x1, 2, 0x1E11); //LD E,d8
 
     try cpu.tick();
@@ -153,5 +160,4 @@ test "CPU: Tick & Fetch" {
     try eql(cpu.programCounter.*, ldDEA.length + ldEd8.length);
     try eql(cpu.remainingCycles, ldEd8.cycles);
     try eql(cpu.totalCycles, ldDEA.cycles + ldEd8.cycles);
-    //try eql(try cpu.registers.readReg(.E), 0x42);
 }
