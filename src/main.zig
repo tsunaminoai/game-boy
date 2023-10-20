@@ -1,7 +1,8 @@
 const std = @import("std");
-const CPU = @import("./libs/cpu/cpu.zig").CPU;
+const LR35902 = @import("./libs/cpu/LR35902.zig");
 
-fn loadProgram(path: []const u8, cpu: *CPU) !void {
+/// TODO: make a real loader thats not loading only 256B
+fn loadProgram(path: []const u8, cpu: *LR35902.CPU()) !void {
     std.debug.print("Loading '{s}'", .{path});
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -10,17 +11,21 @@ fn loadProgram(path: []const u8, cpu: *CPU) !void {
     defer allocator.free(data);
 
     var i: u16 = 0;
-    while ( i < data.len) : (i += 1 ) {
-        cpu.WriteMemory(i, @as(u16, data[i]), 1);
+    while (i < data.len) : (i += 1) {
+        try cpu.ram.write(i, 1, data[i]);
+        if (i > 256) break;
     }
 }
 
 /// main function
 pub fn main() !void {
-    var cpu = CPU{};
+    var cpu = LR35902.CPU().init();
     try loadProgram("rom.bin", &cpu);
-    try cpu.Run();
-    cpu.dump("Final State");
+    try cpu.tick();
+
+    var STDOUT = std.io.getStdOut();
+    var stdout = STDOUT.writer();
+    try stdout.print("Registers:\n{s}\n", .{cpu.registers});
 }
 
 test {
