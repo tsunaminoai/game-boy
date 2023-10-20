@@ -1,6 +1,6 @@
 const std = @import("std");
 
-fn StaticMemory(comptime name: []const u8, comptime size: usize) type {
+pub fn StaticMemory(comptime name: []const u8, comptime size: usize) type {
     return struct {
         name: []const u8 = name,
         size: usize = size,

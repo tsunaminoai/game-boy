@@ -6,22 +6,24 @@ const InstructionList = @import("opcodes.zig").instructions;
 
 pub fn CPU() type {
     return struct {
-        programCounter: usize = 0,
+        programCounter: *u16,
         ram: MMU.StaticMemory("CPU Ram", 0x3FFF),
         registers: Register,
 
         const Self = @This();
 
         pub fn init() Self {
+            var reg = Register.init();
             return Self{
                 .ram = MMU.StaticMemory("CPU Ram", 0x3FFF).init(),
-                .registers = Register.init(),
+                .registers = reg,
+                .programCounter = reg.pc,
             };
         }
         pub fn loadImmediate(self: *Self, inst: Instruction) !void {
             const operand = switch (inst.category) {
-                .byteLoad => self.ram.read(self.programCounter, 1),
-                .wordLoad => self.ram.read(self.programCounter, 2),
+                .byteLoad => try self.ram.read(self.programCounter.*, 1),
+                .wordLoad => try self.ram.read(self.programCounter.*, 2),
                 else => unreachable,
             };
             try self.registers.writeReg(inst.destination.?, operand);
@@ -33,7 +35,7 @@ pub fn CPU() type {
 const eql = std.testing.expectEqual;
 test "CPU: LoadImmediate" {
     var cpu = CPU().init();
-    cpu.ram.write(0x0000, 2, 0xBEEF);
+    try cpu.ram.write(0x0000, 2, 0xBEEF);
     const inst = InstructionList[0x01];
     try cpu.loadImmediate(inst);
     try eql(cpu.registers.readReg(.BC), 0xBEEF);
