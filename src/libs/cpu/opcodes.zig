@@ -50,7 +50,7 @@ pub const Instruction = struct {
 };
 
 // Load 'em up
-pub const instructions = [256]Instruction{
+pub const Instructions = [256]Instruction{
     // 0x0X
     .{ .opcode = 0x00, .name = "NOP", .length = 1, .cycles = 4, .addressing = .none, .category = .control },
     .{ .opcode = 0x01, .name = "LD BC,d16", .length = 3, .cycles = 12, .addressing = .immediate, .category = .wordLoad, .destination = .BC },
@@ -340,14 +340,14 @@ pub const instructions = [256]Instruction{
     .{ .opcode = 0xEF, .name = "RST 38H", .length = 1, .cycles = 16, .addressing = .none, .category = .jump },
 };
 comptime {
-    std.debug.assert(instructions.len == 256);
+    std.debug.assert(Instructions.len == 256);
 }
 
 /// Prints the known opcodes in terminal
 pub fn printOpcodes() void {
     std.debug.print("\n", .{});
 
-    for (instructions) |op| {
+    for (Instructions) |op| {
         std.debug.print("{s}{s}", .{ op.category.color(), op.name });
         // padding
         for (12 - op.name.len) |_|

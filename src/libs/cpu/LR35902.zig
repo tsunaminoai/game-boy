@@ -2,7 +2,7 @@ const std = @import("std");
 const MMU = @import("mmu.zig");
 const Register = @import("register.zig");
 const Instruction = @import("opcodes.zig").Instruction;
-const InstructionList = @import("opcodes.zig").instructions;
+const InstructionList = @import("opcodes.zig").Instructions;
 
 pub fn CPU() type {
     return struct {
