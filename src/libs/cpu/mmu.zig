@@ -1,5 +1,8 @@
 const std = @import("std");
 
+/// An emulator of an mmu. I'm sure there are zig std library functions that
+/// could handle this more ellegantly, but with the way the GB works on both u8
+/// and u16 cells it's clearer whats happening this way
 pub fn StaticMemory(comptime name: []const u8, comptime size: usize) type {
     return struct {
         name: []const u8 = name,
@@ -12,6 +15,8 @@ pub fn StaticMemory(comptime name: []const u8, comptime size: usize) type {
         pub fn init() Self {
             return Self{};
         }
+        /// Read up to 2 bytes from memory. The caller is responsible for knowing
+        /// how to handle u8 v u16, per the len agrument.
         pub fn read(self: *Self, address: u16, len: u2) !u16 {
             _ = self;
             if (address + len > size) {
@@ -24,6 +29,8 @@ pub fn StaticMemory(comptime name: []const u8, comptime size: usize) type {
                 };
             }
         }
+        /// Write up to 2 bytes to memory. The caller is responsible for knowing
+        /// how to handle u8 v u16, per the len agrument.
         pub fn write(self: *Self, address: u16, len: u2, value: u16) !void {
             _ = self;
             if (address + len > data.len) {

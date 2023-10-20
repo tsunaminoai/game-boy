@@ -1,5 +1,9 @@
 const std = @import("std");
 
+/// This is the regsiter bank. This is the 4th or 5th time I've attempted this.
+/// This version is what I'm going with. Its not elegant. Its not pretty.
+/// Its probably not even "ziggy" if such a thing exists at time of writing.
+/// But its low-level-af
 var data = [_]u8{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 af: *u16 = @as(*u16, @ptrCast(@alignCast(data[0..2]))),
 a: *u8 = &data[1],

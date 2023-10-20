@@ -4,14 +4,15 @@ const Register = @import("register.zig");
 const Instruction = @import("opcodes.zig").Instruction;
 const InstructionList = @import("opcodes.zig").Instructions;
 
+/// The CPU LR35902 is the heart of the gameboy.
 pub fn CPU() type {
     return struct {
-        programCounter: *u16,
-        ram: MMU.StaticMemory("CPU Ram", 0x3FFF),
-        registers: Register,
+        programCounter: *u16, // pointer to the value in the PC register
+        ram: MMU.StaticMemory("CPU Ram", 0x3FFF), //ROM0
+        registers: Register, // the GB register bank
         currentInstruction: ?Instruction = null,
-        totalCycles: usize = 0,
-        remainingCycles: usize = 0,
+        totalCycles: usize = 0, // how many cycles since boot
+        remainingCycles: usize = 0, // how many cycles to wait until next tick
 
         const Self = @This();
 
@@ -23,6 +24,9 @@ pub fn CPU() type {
                 .programCounter = reg.pc,
             };
         }
+        /// Ticks the CPU. An instruction is executed all at once. We then wait
+        /// for the correct number of ticks until the next fetch. This decouples
+        /// the clock rate of the GB from the lock rate of the emulator
         pub fn tick(self: *Self) !void {
             if (self.remainingCycles > 0) {
                 self.remainingCycles -= 1;
@@ -31,6 +35,8 @@ pub fn CPU() type {
             }
         }
 
+        /// Fetches the next instruction from memory. Updates cycle counts and
+        /// the program counter.
         pub fn fetch(self: *Self) !void {
             const opcode = try self.ram.read(self.programCounter.*, 1);
             self.currentInstruction = InstructionList[opcode];
@@ -47,6 +53,7 @@ pub fn CPU() type {
             };
         }
 
+        /// The main switching logic from instruction to emulator method
         pub fn execute(self: *Self) !void {
             switch (self.currentInstruction.?.category) {
                 .byteLoad, .wordLoad => {
@@ -63,6 +70,8 @@ pub fn CPU() type {
             if (increment > 0)
                 self.programCounter.* += increment - 1;
         }
+
+        /// Loads an immediate value to the intructed destination
         pub fn loadImmediate(self: *Self, inst: Instruction) !void {
             const operand = switch (inst.category) {
                 .byteLoad => try self.ram.read(self.programCounter.*, 1),
@@ -72,6 +81,9 @@ pub fn CPU() type {
             // std.debug.print("Writing 0x{X:0>2}@0x{X:0>4} to register {s}\n", .{ operand, self.programCounter.*, @tagName(inst.destination.?) });
             try self.registers.writeReg(inst.destination.?, operand);
         }
+
+        /// Loads a value from the source register to the address at the location
+        /// speicied by the destination
         pub fn loadAbsolute(self: *Self, inst: Instruction) !void {
             const address = try self.registers.readReg(inst.destination.?);
             const value = try self.registers.readReg(inst.source.?);
@@ -81,6 +93,8 @@ pub fn CPU() type {
             // );
             try self.ram.write(address, 1, value);
         }
+        /// Loads a value from the source register to the location
+        /// speicied by the destination + the program counter
         pub fn loadRelative(self: *Self, inst: Instruction) !void {
             const operand = switch (inst.category) {
                 .byteLoad => try self.ram.read(self.programCounter.*, 1),
