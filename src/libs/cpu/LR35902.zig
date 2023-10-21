@@ -85,13 +85,49 @@ pub fn CPU() type {
         /// Loads a value from the source register to the address at the location
         /// speicied by the destination
         pub fn loadAbsolute(self: *Self, inst: Instruction) !void {
-            const address = try self.registers.readReg(inst.destination.?);
-            const value = try self.registers.readReg(inst.source.?);
+            const commaPosition = std.mem.indexOf(u8, inst.name, ",");
+            const parenPosition = std.mem.indexOf(u8, inst.name, "(");
+            const decPos = std.mem.indexOf(u8, inst.name, "-");
+            const incPos = std.mem.indexOf(u8, inst.name, "+");
+
+            var address: u16 = 0;
+            var value: u16 = 0;
+
+            // hacky way to avoid adding more metadata to the opcodes
+            if (parenPosition) |pos| {
+                if (commaPosition.? > pos) {
+                    address = try self.registers.readReg(inst.destination.?);
+                    value = try self.registers.readReg(inst.source.?);
+                    try self.ram.write(address, 1, value);
+                } else if (commaPosition.? < pos) {
+                    address = try self.registers.readReg(inst.source.?);
+                    value = try self.ram.read(address, 1);
+                    try self.registers.writeReg(inst.destination.?, value);
+                }
+            } else {
+                address = try self.registers.readReg(inst.destination.?);
+                value = try self.registers.readReg(inst.source.?);
+                try self.ram.write(address, 1, value);
+            }
+
+            if (incPos) |pos| {
+                if (pos > commaPosition.?) {
+                    try self.registers.increment(inst.source.?);
+                } else if (pos < commaPosition.?) {
+                    try self.registers.increment(inst.destination.?);
+                }
+            }
+            if (decPos) |pos| {
+                if (pos > commaPosition.?) {
+                    try self.registers.decrement(inst.source.?);
+                } else if (pos < commaPosition.?) {
+                    try self.registers.decrement(inst.destination.?);
+                }
+            }
             // std.debug.print(
             //     "Writing from ({s}) 0x{X:0>2} to ({s})0x{X:0>4} \n",
             //     .{ @tagName(inst.destination.?), value, @tagName(inst.source.?), address },
             // );
-            try self.ram.write(address, 1, value);
         }
         /// Loads a value from the source register to the location
         /// speicied by the destination + the program counter
@@ -128,6 +164,24 @@ test "CPU: LoadAbsolute" {
     const inst = InstructionList[0x02];
     try cpu.loadAbsolute(inst);
     try eql(try cpu.ram.read(0x1337, 1), 0x42);
+}
+
+test "CPU: LoadAbsolute(HL-)" {
+    var cpu = CPU().init();
+    try cpu.registers.writeReg(.A, 0x42);
+    try cpu.registers.writeReg(.HL, 0x1337);
+    var inst = InstructionList[0x32];
+    try cpu.loadAbsolute(inst);
+    try eql(try cpu.ram.read(0x1337, 1), 0x42);
+    try eql(try cpu.registers.readReg(.HL), 0x1336);
+
+    try cpu.registers.writeReg(.A, 0x0);
+    try cpu.registers.writeReg(.HL, 0x1111);
+    try cpu.ram.write(0x1111, 1, 0x49);
+    inst = InstructionList[0x3A];
+    try cpu.loadAbsolute(inst);
+    try eql(try cpu.registers.readReg(.A), 0x49);
+    try eql(try cpu.registers.readReg(.HL), 0x1110);
 }
 
 test "CPU: LoadRelative" {
@@ -174,4 +228,8 @@ test "CPU: Tick & Fetch" {
     try eql(cpu.programCounter.*, ldDEA.length + ldEd8.length);
     try eql(cpu.remainingCycles, ldEd8.cycles);
     try eql(cpu.totalCycles, ldDEA.cycles + ldEd8.cycles);
+}
+
+test {
+    std.testing.refAllDecls(@This());
 }

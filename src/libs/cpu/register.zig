@@ -4,7 +4,14 @@ const std = @import("std");
 /// This version is what I'm going with. Its not elegant. Its not pretty.
 /// Its probably not even "ziggy" if such a thing exists at time of writing.
 /// But its low-level-af
-var data = [_]u8{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+var data = [_]u8{
+    0x01, 0xB0, // af
+    0x00, 0x13, // bc
+    0x00, 0xD8, // de
+    0x01, 0x4D, // hl
+    0xFF, 0xFE, // sp
+    0x00, 0x00, // pc
+};
 af: *u16 = @as(*u16, @ptrCast(@alignCast(data[0..2]))),
 a: *u8 = &data[1],
 f: *u8 = &data[0],
@@ -69,6 +76,19 @@ pub fn writeReg(self: *Self, reg: RegisterID, value: u16) !void {
         },
     }
 }
+pub fn increment(self: *Self, reg: RegisterID) !void {
+    const value = try self.readReg(reg) + 1;
+    // std.debug.print("Incrementing: {s} to {X:0>4}\n", .{ @tagName(reg), value });
+
+    try self.writeReg(reg, value);
+}
+pub fn decrement(self: *Self, reg: RegisterID) !void {
+    const value = try self.readReg(reg) - 1;
+    // std.debug.print("Decrementing: {s} to {X:0>4}\n", .{ @tagName(reg), value });
+
+    try self.writeReg(reg, value);
+}
+
 pub fn readReg(self: *Self, reg: RegisterID) !u16 {
     return switch (reg) {
         .AF => self.af.*,
