@@ -145,6 +145,20 @@ pub fn CPU() type {
             // );
             try self.ram.write(address, 2, value);
         }
+        pub fn alu(self: *Self, inst: Instruction) !void {
+            var originValue = switch (inst.addressing) {
+                .absolute => try self.ram.read(try self.registers.readReg(inst.source.?), 1),
+                .none => try self.registers.readReg(inst.source.?),
+                else => return error.InvalidAddressingForMathOperation,
+            };
+            switch (inst.opcode) {
+                0x80...0x87 => {
+                    const value = originValue + try self.registers.readReg(inst.destination.?);
+                    try self.registers.writeReg(inst.destination.?, value);
+                },
+                else => return error.InvalidMathInstruction,
+            }
+        }
     };
 }
 
@@ -228,6 +242,22 @@ test "CPU: Tick & Fetch" {
     try eql(cpu.programCounter.*, ldDEA.length + ldEd8.length);
     try eql(cpu.remainingCycles, ldEd8.cycles);
     try eql(cpu.totalCycles, ldDEA.cycles + ldEd8.cycles);
+}
+
+test "ALU: ADD" {
+    var cpu = CPU().init();
+    try cpu.registers.writeReg(.A, 2);
+    try cpu.registers.writeReg(.L, 243);
+    var inst = InstructionList[0x85];
+    try cpu.alu(inst);
+    try eql(try cpu.registers.readReg(.A), 245);
+
+    try cpu.registers.writeReg(.HL, 0x1337);
+    try cpu.registers.writeReg(.A, 7);
+    try cpu.ram.write(0x1337, 1, 7);
+    inst = InstructionList[0x86];
+    try cpu.alu(inst);
+    try eql(try cpu.registers.readReg(.A), 14);
 }
 
 test {
