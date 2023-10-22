@@ -4,6 +4,8 @@ const Register = @import("register.zig");
 const Instruction = @import("opcodes.zig").Instruction;
 const InstructionList = @import("opcodes.zig").Instructions;
 
+const Flags = struct { carry: bool = false, halfCarry: bool = false, zero: bool = false, subtraction: bool = false };
+
 /// The CPU LR35902 is the heart of the gameboy.
 pub fn CPU() type {
     return struct {
@@ -13,6 +15,7 @@ pub fn CPU() type {
         currentInstruction: ?Instruction = null,
         totalCycles: usize = 0, // how many cycles since boot
         remainingCycles: usize = 0, // how many cycles to wait until next tick
+        flags: Flags = Flags{},
 
         const Self = @This();
 
@@ -64,6 +67,7 @@ pub fn CPU() type {
                         else => undefined,
                     }
                 },
+                .byteMath => try self.alu(self.currentInstruction.?),
                 else => undefined,
             }
             const increment = self.currentInstruction.?.length;
@@ -149,15 +153,69 @@ pub fn CPU() type {
             var originValue = switch (inst.addressing) {
                 .absolute => try self.ram.read(try self.registers.readReg(inst.source.?), 1),
                 .none => try self.registers.readReg(inst.source.?),
+                .immediate => try self.ram.read(self.programCounter.*, 1),
                 else => return error.InvalidAddressingForMathOperation,
             };
+            var targetValue: u16 = try self.registers.readReg(inst.destination.?);
+            var result: u16 = 0;
+            var sub: bool = false;
+
             switch (inst.opcode) {
-                0x80...0x87 => {
-                    const value = originValue + try self.registers.readReg(inst.destination.?);
-                    try self.registers.writeReg(inst.destination.?, value);
+                0x80...0x87 => { // ADD
+                    result = originValue + targetValue;
+                    try self.registers.writeReg(inst.destination.?, result);
+                    self.setFlags(originValue, targetValue, result, sub);
+                },
+                0x88...0x8F => { // ADC
+                    result = originValue + targetValue + @intFromBool(self.flags.carry);
+                    try self.registers.writeReg(inst.destination.?, result);
+                    self.setFlags(originValue, targetValue, result, sub);
+                },
+                0x90...0x97 => { // SUB
+                    result = targetValue - originValue;
+                    sub = true;
+                    try self.registers.writeReg(inst.destination.?, result);
+                    self.setFlags(originValue, targetValue, result, sub);
+                },
+                0x98...0x9F => { // SBC
+                    result = targetValue - originValue - @intFromBool(self.flags.carry);
+                    sub = true;
+                    try self.registers.writeReg(inst.destination.?, result);
+                    self.setFlags(originValue, targetValue, result, sub);
+                },
+                0xA0...0xA7 => { // AND
+                    result = targetValue & originValue;
+                    try self.registers.writeReg(inst.destination.?, result);
+                    self.flags.zero = result == 0;
+                },
+                0xA8...0xAF => { // XOR
+                    result = targetValue ^ originValue;
+                    try self.registers.writeReg(inst.destination.?, result);
+                    self.flags.zero = result == 0;
+                },
+                0xB0...0xB7 => { // OR
+                    result = targetValue | originValue;
+                    try self.registers.writeReg(inst.destination.?, result);
+                    self.flags.zero = result == 0;
+                },
+                0xB8...0xBF => { // CP
+                    result = @intFromBool(targetValue == originValue);
+                    try self.registers.writeReg(inst.destination.?, result);
+                    self.flags.zero = result == 0;
                 },
                 else => return error.InvalidMathInstruction,
             }
+        }
+        pub fn setFlags(self: *Self, op1: u16, op2: u16, result: u16, sub: bool) void {
+            const half_carry_8bit = (op1 ^ op2 ^ result) & 0x10 == 0x10;
+            const carry_8bit = (op1 ^ op2 ^ result) & 0x100 == 0x100;
+            const zero = result & 0xFF == 0;
+            self.flags = .{
+                .carry = carry_8bit,
+                .halfCarry = half_carry_8bit,
+                .subtraction = sub,
+                .zero = zero,
+            };
         }
     };
 }
@@ -253,11 +311,12 @@ test "ALU: ADD" {
     try eql(try cpu.registers.readReg(.A), 245);
 
     try cpu.registers.writeReg(.HL, 0x1337);
-    try cpu.registers.writeReg(.A, 7);
+    try cpu.registers.writeReg(.A, 0xFF);
     try cpu.ram.write(0x1337, 1, 7);
     inst = InstructionList[0x86];
     try cpu.alu(inst);
-    try eql(try cpu.registers.readReg(.A), 14);
+    try eql(try cpu.registers.readReg(.A), 6);
+    try eql(cpu.flags, .{ .zero = false, .carry = true, .halfCarry = true, .subtraction = false });
 }
 
 test {
