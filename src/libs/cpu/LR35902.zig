@@ -1,5 +1,6 @@
 const std = @import("std");
-const MMU = @import("mmu.zig");
+// const MMU = @import("mmu.zig");
+const Bus = @import("bus.zig");
 const Register = @import("register.zig");
 const Instruction = @import("opcodes.zig").Instruction;
 const InstructionList = @import("opcodes.zig").Instructions;
@@ -10,7 +11,8 @@ const Flags = struct { carry: bool = false, halfCarry: bool = false, zero: bool 
 pub fn CPU() type {
     return struct {
         programCounter: *u16, // pointer to the value in the PC register
-        ram: MMU.StaticMemory("CPU Ram", 0x3FFF), //ROM0
+        //todo: this needs to be connected to the bus
+        ram: Bus.Bus(), //ROM0
         registers: Register, // the GB register bank
         currentInstruction: ?Instruction = null,
         totalCycles: usize = 0, // how many cycles since boot
@@ -19,10 +21,11 @@ pub fn CPU() type {
 
         const Self = @This();
 
-        pub fn init() Self {
-            var reg = Register.init();
+        pub fn init(alloc: std.mem.Allocator) !Self {
+            const reg = Register.init();
+            const bus = try Bus.Bus().init(alloc);
             return Self{
-                .ram = MMU.StaticMemory("CPU Ram", 0x3FFF).init(),
+                .ram = bus,
                 .registers = reg,
                 .programCounter = reg.pc,
             };
@@ -51,7 +54,7 @@ pub fn CPU() type {
             self.remainingCycles += self.currentInstruction.?.cycles;
             self.programCounter.* += 1;
             self.execute() catch |err| {
-                std.debug.print("Failed executing instruction: {any}", .{self.currentInstruction.?});
+                std.debug.print("Failed executing instruction: {}\n", .{self.currentInstruction.?});
                 return err;
             };
         }
@@ -150,13 +153,13 @@ pub fn CPU() type {
             try self.ram.write(address, 2, value);
         }
         pub fn alu(self: *Self, inst: Instruction) !void {
-            var originValue = switch (inst.addressing) {
+            const originValue = switch (inst.addressing) {
                 .absolute => try self.ram.read(try self.registers.readReg(inst.source.?), 1),
                 .none => try self.registers.readReg(inst.source.?),
                 .immediate => try self.ram.read(self.programCounter.*, 1),
                 else => return error.InvalidAddressingForMathOperation,
             };
-            var targetValue: u16 = try self.registers.readReg(inst.destination.?);
+            const targetValue: u16 = try self.registers.readReg(inst.destination.?);
             var result: u16 = 0;
             var sub: bool = false;
 
@@ -222,7 +225,7 @@ pub fn CPU() type {
 
 const eql = std.testing.expectEqual;
 test "CPU: LoadImmediate" {
-    var cpu = CPU().init();
+    var cpu = try CPU().init(std.testing.allocator);
     try cpu.ram.write(0x0, 2, 0xBEEF);
     const inst = InstructionList[0x01];
     try cpu.loadImmediate(inst);
@@ -230,7 +233,7 @@ test "CPU: LoadImmediate" {
 }
 
 test "CPU: LoadAbsolute" {
-    var cpu = CPU().init();
+    var cpu = try CPU().init(std.testing.allocator);
     try cpu.registers.writeReg(.A, 0x42);
     try cpu.registers.writeReg(.BC, 0x1337);
     const inst = InstructionList[0x02];
@@ -239,7 +242,7 @@ test "CPU: LoadAbsolute" {
 }
 
 test "CPU: LoadAbsolute(HL-)" {
-    var cpu = CPU().init();
+    var cpu = try CPU().init(std.testing.allocator);
     try cpu.registers.writeReg(.A, 0x42);
     try cpu.registers.writeReg(.HL, 0x1337);
     var inst = InstructionList[0x32];
@@ -257,7 +260,7 @@ test "CPU: LoadAbsolute(HL-)" {
 }
 
 test "CPU: LoadRelative" {
-    var cpu = CPU().init();
+    var cpu = try CPU().init(std.testing.allocator);
     try cpu.registers.writeReg(.PC, 0x0);
     try cpu.registers.writeReg(.SP, 0xBEEF);
     try cpu.ram.write(0x0, 2, 0x1337);
@@ -267,7 +270,7 @@ test "CPU: LoadRelative" {
 }
 
 test "CPU: Tick & Fetch" {
-    var cpu = CPU().init();
+    var cpu = try CPU().init(std.testing.allocator);
     const ldDEA = InstructionList[0x12];
     const ldEd8 = InstructionList[0x1E];
 
@@ -303,7 +306,7 @@ test "CPU: Tick & Fetch" {
 }
 
 test "ALU: ADD" {
-    var cpu = CPU().init();
+    var cpu = try CPU().init(std.testing.allocator);
     try cpu.registers.writeReg(.A, 2);
     try cpu.registers.writeReg(.L, 243);
     var inst = InstructionList[0x85];

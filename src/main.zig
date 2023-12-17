@@ -1,9 +1,9 @@
 const std = @import("std");
 const LR35902 = @import("./libs/cpu/LR35902.zig");
 
-/// TODO: make a real loader thats not loading only 256B
+// TODO: make a real loader thats not loading only 256B
 fn loadProgram(path: []const u8, cpu: *LR35902.CPU()) !void {
-    std.debug.print("Loading '{s}'", .{path});
+    std.debug.print("Loading '{s}'\n", .{path});
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
@@ -19,9 +19,11 @@ fn loadProgram(path: []const u8, cpu: *LR35902.CPU()) !void {
 
 /// main function
 pub fn main() !void {
-    var cpu = LR35902.CPU().init();
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    var cpu = try LR35902.CPU().init(allocator);
     try loadProgram("rom.bin", &cpu);
-    try cpu.tick();
+    for (0..100) |_| try cpu.tick();
 
     var STDOUT = std.io.getStdOut();
     var stdout = STDOUT.writer();
