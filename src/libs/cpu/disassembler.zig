@@ -1,3 +1,4 @@
+/// Disassembler for the LR35902 CPU
 const std = @import("std");
 const Register = @import("register.zig");
 const OC = @import("opcodes.zig");
@@ -14,6 +15,7 @@ alloc: std.mem.Allocator,
 file: std.fs.File,
 commands: std.ArrayList(Command),
 
+/// Init the disassembler
 pub fn init(alloc: std.mem.Allocator, file: std.fs.File) DAsm {
     return DAsm{
         .alloc = alloc,
@@ -22,10 +24,12 @@ pub fn init(alloc: std.mem.Allocator, file: std.fs.File) DAsm {
     };
 }
 
+/// deinit the disassembler
 pub fn deinit(self: *DAsm) void {
     self.commands.deinit();
 }
 
+/// Parse a gameboy rom
 pub fn parse(self: *DAsm) !void {
     var reader = self.file.reader();
     const end = try reader.context.getEndPos();

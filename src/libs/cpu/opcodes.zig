@@ -48,13 +48,6 @@ pub const Instruction = struct {
     source: ?Register.RegisterID = null,
     destination: ?Register.RegisterID = null,
 
-    // std.debug.print("{s}{s}", .{ op.category.color(), op.name });
-    //     // padding
-    //     for (12 - op.name.len) |_|
-    //         std.debug.print(" ", .{});
-    //     // newline every 16 intstructions
-    //     if (op.opcode & 0xF == 0xF)
-    //         std.debug.print("\x1b[0m\n", .{});
     pub fn format(self: Instruction, fmt: []const u8, options: anytype, writer: anytype) !void {
         _ = fmt;
         _ = options;
@@ -70,7 +63,7 @@ pub const Instruction = struct {
     }
 };
 
-// Load 'em up
+/// All the instructions
 pub const Instructions = [256]Instruction{
     // 0x0X
     .{ .opcode = 0x00, .name = "NOP", .length = 1, .cycles = 4, .addressing = .none, .category = .control },

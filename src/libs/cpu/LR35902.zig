@@ -28,6 +28,8 @@ pub fn CPU() type {
         const Self = @This();
         var ticks: usize = 0;
 
+        /// Initializes the CPU. This will also initialize the bus and the
+        /// register bank
         pub fn init(alloc: std.mem.Allocator) CPUError!Self {
             const reg = Register.init();
             const bus = try Bus.Bus().init(alloc);

@@ -58,6 +58,8 @@ pub const RegisterID = enum {
     H,
     L,
 };
+
+/// Write to a register.
 pub fn writeReg(self: *Self, reg: RegisterID, value: u16) RegisterError!void {
     switch (reg) {
         .AF => self.af.* = value,
@@ -81,12 +83,16 @@ pub fn writeReg(self: *Self, reg: RegisterID, value: u16) RegisterError!void {
         },
     }
 }
+
+/// Increment a register by 1
 pub fn increment(self: *Self, reg: RegisterID) RegisterError!void {
     const value = try self.readReg(reg) + 1;
     // std.debug.print("Incrementing: {s} to {X:0>4}\n", .{ @tagName(reg), value });
 
     try self.writeReg(reg, value);
 }
+
+/// Decrement a register by 1
 pub fn decrement(self: *Self, reg: RegisterID) RegisterError!void {
     const value = try self.readReg(reg) - 1;
     // std.debug.print("Decrementing: {s} to {X:0>4}\n", .{ @tagName(reg), value });
@@ -94,6 +100,7 @@ pub fn decrement(self: *Self, reg: RegisterID) RegisterError!void {
     try self.writeReg(reg, value);
 }
 
+/// Read from a register.
 pub fn readReg(self: *Self, reg: RegisterID) RegisterError!u16 {
     return switch (reg) {
         .AF => self.af.*,

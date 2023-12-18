@@ -26,6 +26,7 @@ pub fn StaticMemory() type {
 
         const Self = @This();
 
+        /// Initialize a static memory unit with specified capacity and address
         pub fn init(
             name: []const u8,
             size: usize,
@@ -50,7 +51,7 @@ pub fn StaticMemory() type {
                 .data = data,
             };
         }
-
+        /// Deinitialize a static memory unit. Unneeded, but here for completeness
         pub fn deinit(self: *Self) void {
             _ = self;
             // self.alloc.free(self.name);
@@ -63,9 +64,12 @@ pub fn StaticMemory() type {
             std.process.exit(1);
         }
 
+        /// Check if an address is within the range of this memory unit
         fn addressIsValid(self: Self, address: u16) bool {
             return self.startAddress <= address and address <= self.endAddress;
         }
+
+        /// Translate an address to a local address within the memory unit
         fn translateAddress(self: Self, address: u16) MemoryError!u16 {
             return if (self.addressIsValid(address))
                 address - self.startAddress
@@ -138,6 +142,8 @@ pub fn StaticMemory() type {
             }
             std.log.debug("Wrote: {s}\n", .{std.fmt.fmtSliceHexUpper(writeValue)});
         }
+
+        /// Print the contents of the memory unit to the console
         pub fn format(
             self: Self,
             comptime _: []const u8,
