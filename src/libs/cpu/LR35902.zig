@@ -30,6 +30,10 @@ pub fn CPU() type {
                 .programCounter = reg.pc,
             };
         }
+        pub fn deinit(self: *Self) void {
+            self.ram.deinit();
+        }
+
         /// Ticks the CPU. An instruction is executed all at once. We then wait
         /// for the correct number of ticks until the next fetch. This decouples
         /// the clock rate of the GB from the lock rate of the emulator
@@ -226,6 +230,8 @@ pub fn CPU() type {
 const eql = std.testing.expectEqual;
 test "CPU: LoadImmediate" {
     var cpu = try CPU().init(std.testing.allocator);
+    defer cpu.deinit();
+
     try cpu.ram.write(0x0, 2, 0xBEEF);
     const inst = InstructionList[0x01];
     try cpu.loadImmediate(inst);
@@ -234,6 +240,8 @@ test "CPU: LoadImmediate" {
 
 test "CPU: LoadAbsolute" {
     var cpu = try CPU().init(std.testing.allocator);
+    defer cpu.deinit();
+
     try cpu.registers.writeReg(.A, 0x42);
     try cpu.registers.writeReg(.BC, 0x1337);
     const inst = InstructionList[0x02];
@@ -243,6 +251,8 @@ test "CPU: LoadAbsolute" {
 
 test "CPU: LoadAbsolute(HL-)" {
     var cpu = try CPU().init(std.testing.allocator);
+    defer cpu.deinit();
+
     try cpu.registers.writeReg(.A, 0x42);
     try cpu.registers.writeReg(.HL, 0x1337);
     var inst = InstructionList[0x32];
@@ -261,6 +271,8 @@ test "CPU: LoadAbsolute(HL-)" {
 
 test "CPU: LoadRelative" {
     var cpu = try CPU().init(std.testing.allocator);
+    defer cpu.deinit();
+
     try cpu.registers.writeReg(.PC, 0x0);
     try cpu.registers.writeReg(.SP, 0xBEEF);
     try cpu.ram.write(0x0, 2, 0x1337);
@@ -271,6 +283,8 @@ test "CPU: LoadRelative" {
 
 test "CPU: Tick & Fetch" {
     var cpu = try CPU().init(std.testing.allocator);
+    defer cpu.deinit();
+
     const ldDEA = InstructionList[0x12];
     const ldEd8 = InstructionList[0x1E];
 
@@ -307,6 +321,8 @@ test "CPU: Tick & Fetch" {
 
 test "ALU: ADD" {
     var cpu = try CPU().init(std.testing.allocator);
+    defer cpu.deinit();
+
     try cpu.registers.writeReg(.A, 2);
     try cpu.registers.writeReg(.L, 243);
     var inst = InstructionList[0x85];

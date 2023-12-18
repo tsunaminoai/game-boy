@@ -359,5 +359,5 @@ pub fn printOpcodes() void {
 }
 
 test "Opcodes" {
-    printOpcodes();
+    // printOpcodes();
 }

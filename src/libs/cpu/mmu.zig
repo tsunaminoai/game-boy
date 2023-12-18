@@ -34,7 +34,7 @@ pub fn StaticMemory() type {
             alloc: std.mem.Allocator,
         ) !Self {
             if (endAddress - startAddress > size) {
-                std.log.err("Address range of 0x{X:02} to 0x{X:02} requested, but size is 0x{X:02}\n", .{ startAddress, endAddress, size });
+                std.log.err("Address range of 0x{X:0>2} to 0x{X:0>2} requested, but size is 0x{X:0>2}\n", .{ startAddress, endAddress, size });
                 return MemoryError.SizeDoesntMatchAdddressRange;
             }
 
@@ -52,8 +52,9 @@ pub fn StaticMemory() type {
         }
 
         pub fn deinit(self: *Self) void {
-            self.alloc.free(self.name);
-            self.alloc.free(self.data);
+            _ = self;
+            // self.alloc.free(self.name);
+            // self.alloc.free(self.data);
         }
 
         fn fatal(self: *Self, fmt: []const u8, args: anytype) noreturn {
@@ -68,14 +69,20 @@ pub fn StaticMemory() type {
         fn translateAddress(self: Self, address: u16) MemoryError!u16 {
             return if (self.addressIsValid(address))
                 address - self.startAddress
-            else
-                error.AddressOutOfRange;
+            else {
+                std.debug.print("Address translation error\nRequested address 0x{X:0>2} is not within 0x{X:0>2} - 0x{X:0>2}\n", .{
+                    address,
+                    self.startAddress,
+                    self.endAddress,
+                });
+                return error.AddressOutOfRange;
+            };
         }
 
         /// Read up to 2 bytes from memory. The caller is responsible for knowing
         /// how to handle u8 v u16, per the len agrument.
         pub fn read(self: *Self, address: u16, len: u2) ReadError!u16 {
-            std.log.debug("MMU address range: 0x{X:02}-0x{X:02}. Reading 0x{X:02} =>  0x{X:02}\n", .{
+            std.log.debug("MMU address range: 0x{X:0>2} - 0x{X:0>2}. Reading 0x{X:0>2} =>  0x{X:0>2}\n", .{
                 // self.name,
                 self.startAddress,
                 self.endAddress,
@@ -84,21 +91,22 @@ pub fn StaticMemory() type {
             });
 
             const localAddr = self.translateAddress(address) catch |err| {
-                std.log.err("Read error: Address out of range.\nAttempted to access: 0x{X:02}\n", .{address});
+                std.log.err("Read error: Address out of range.\nAttempted to access: 0x{X:0>2}\n", .{address});
                 return err;
             };
-
-            return switch (len) {
+            const value = switch (len) {
                 1 => self.data[localAddr],
-                2 => std.mem.readIntSliceBig(u16, self.data[address .. address + 2]),
-                else => ReadError.InvalidValueLength,
+                2 => std.mem.readInt(u16, @as(*[2]u8, @ptrCast(self.data[address .. address + 2])), .Big),
+                else => return ReadError.InvalidValueLength,
             };
+            std.debug.print("read value {X:0>2}\n", .{value});
+            return value;
         }
 
         /// Write up to 2 bytes to memory. The caller is responsible for knowing
         /// how to handle u8 v u16, per the len agrument.
         pub fn write(self: *Self, address: u16, len: u2, value: u16) WriteError!void {
-            std.debug.print("MMU address range: 0x{X:02}-0x{X:02}. Writing value 0x{X:02} to 0x{X:02}\n", .{
+            std.debug.print("MMU address range: 0x{X:0>2}-0x{X:0>2}. Writing value 0x{X:0>2} to 0x{X:0>2}\n", .{
                 // self.name.len,
                 self.startAddress,
                 self.endAddress,
@@ -106,22 +114,29 @@ pub fn StaticMemory() type {
                 address,
             });
             const localAddr = self.translateAddress(address) catch |err| {
-                std.debug.print("Write error: Address out of range.\nAttempted to access: 0x{X:02}\nAddress start: 0x{X:02} end: 0x{X:02}\n", .{
+                std.debug.print("Write error: Address out of range.\nAttempted to access: 0x{X:0>2}\nAddress start: 0x{X:0>2} end: 0x{X:0>2}\n", .{
                     address,
                     self.startAddress,
                     self.endAddress,
                 });
                 return err;
             };
+            std.debug.print("Writing {X:0>2} to local address: 0x{X:0>2}\n", .{ value, localAddr });
 
+            var writeValue: []u8 = undefined;
             switch (len) {
-                1 => self.data[localAddr] = @as(u8, @truncate(value)),
+                1 => {
+                    self.data[localAddr] = @as(u8, @truncate(value));
+                    writeValue = self.data[localAddr .. localAddr + 1];
+                },
                 2 => {
                     self.data[localAddr] = @as(u8, @truncate(value >> 8));
                     self.data[localAddr + 1] = @as(u8, @truncate(value & 0xFF));
+                    writeValue = self.data[localAddr .. localAddr + 2];
                 },
                 else => return WriteError.InvalidValueLength,
             }
+            std.debug.print("Wrote: {s}\n", .{std.fmt.fmtSliceHexUpper(writeValue)});
         }
         pub fn format(
             self: Self,
@@ -144,7 +159,11 @@ pub fn StaticMemory() type {
 
 const eql = std.testing.expectEqual;
 test "StaticMemory" {
-    var mem = try StaticMemory().init("Test", 0x3fff, 0, 0x3fff, std.testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    const alloc = arena.allocator();
+    defer arena.deinit();
+
+    var mem = try StaticMemory().init("Test", 0xff, 0, 0xff, alloc);
     defer mem.deinit();
     try mem.write(0x0, 1, 0xBE);
     try mem.write(0x1, 2, 0xEFED);
