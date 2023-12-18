@@ -2,7 +2,7 @@ const std = @import("std");
 const GB = @import("gameboy");
 
 // TODO: make a real loader thats not loading only 256B
-fn loadProgram(path: []const u8, cpu: *GB.CPU()) !void {
+fn loadProgram(path: []const u8, cpu: *GB.LR35902.CPU()) !void {
     std.debug.print("Loading '{s}'\n", .{path});
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -21,7 +21,7 @@ fn loadProgram(path: []const u8, cpu: *GB.CPU()) !void {
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
-    var cpu = try GB.CPU().init(allocator);
+    var cpu = try GB.LR35902.CPU().init(allocator);
     try loadProgram("rom.bin", &cpu);
     for (0..1000) |_| try cpu.tick();
 
