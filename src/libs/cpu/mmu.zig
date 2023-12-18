@@ -14,7 +14,7 @@ const WriteError = MemoryError;
 /// could handle this more ellegantly, but with the way the GB works on both u8
 /// and u16 cells it's clearer whats happening this way
 ///
-/// Returns a static memory unit with 16kB capacity
+/// Returns a static memory unit with specified capacity
 pub fn StaticMemory() type {
     return struct {
         name: []const u8,

@@ -1,13 +1,13 @@
 const std = @import("std");
-// const MMU = @import("mmu.zig");
+
 const Bus = @import("bus.zig");
 const Register = @import("register.zig");
 const Instruction = @import("opcodes.zig").Instruction;
 const InstructionList = @import("opcodes.zig").Instructions;
 
-const Flags = struct { carry: bool = false, halfCarry: bool = false, zero: bool = false, subtraction: bool = false };
+pub const Flags = struct { carry: bool = false, halfCarry: bool = false, zero: bool = false, subtraction: bool = false };
 
-const CPUError = error{
+pub const CPUError = error{
     InvalidInstruction,
     InvalidAddressingForMathOperation,
     InvalidMathInstruction,
@@ -19,7 +19,7 @@ pub fn CPU() type {
         programCounter: *u16, // pointer to the value in the PC register
         //todo: this needs to be connected to the bus
         ram: Bus.Bus(), //ROM0
-        registers: Register, // the GB register bank
+        registers: Register.Register, // the GB register bank
         currentInstruction: ?Instruction = null,
         totalCycles: usize = 0, // how many cycles since boot
         remainingCycles: usize = 0, // how many cycles to wait until next tick
@@ -31,7 +31,7 @@ pub fn CPU() type {
         /// Initializes the CPU. This will also initialize the bus and the
         /// register bank
         pub fn init(alloc: std.mem.Allocator) CPUError!Self {
-            const reg = Register.init();
+            const reg = Register.Register.init();
             const bus = try Bus.Bus().init(alloc);
             return Self{
                 .ram = bus,

@@ -15,6 +15,16 @@ pub fn build(b: *std.Build) void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
+    const gb_mod = b.addModule("gameboy", .{
+        .source_file = .{ .path = "src/libs/cpu/cpu.zig" },
+    });
+    const gb_lib = b.addStaticLibrary(.{
+        .name = "gb_lib",
+        .root_source_file = .{ .path = "src/libs/cpu/cpu.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+
     const exe = b.addExecutable(.{
         .name = "game-boy",
         // In this case the main source file is merely a path, however, in more
@@ -23,6 +33,8 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    exe.linkLibrary(gb_lib);
+    exe.addModule("gameboy", gb_mod);
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
@@ -69,7 +81,7 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_unit_tests.step);
 
     const docs = b.addInstallDirectory(.{
-        .source_dir = unit_tests.getEmittedDocs(),
+        .source_dir = gb_lib.getEmittedDocs(),
         .install_dir = .prefix,
         .install_subdir = "docs/",
     });
