@@ -17,13 +17,27 @@ fn loadProgram(path: []const u8, cpu: *GB.LR35902.CPU()) !void {
     }
 }
 
+fn fatal(err: anyerror, cpu: *GB.LR35902.CPU()) !noreturn {
+    var STDOUT = std.io.getStdOut();
+    var stdout = STDOUT.writer();
+    try stdout.print("Fatal error: {s}\n", .{@errorName(err)});
+    try stdout.print("Registers:\n{s}\n", .{cpu.registers});
+    // try stdout.print("Stack:\n{s}\n", .{cpu.stack});
+    try stdout.print("Memory:\n{}\n", .{cpu.ram});
+    std.os.exit(1);
+}
+
 /// main function
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
     var cpu = try GB.LR35902.CPU().init(allocator);
     try loadProgram("rom.bin", &cpu);
-    for (0..1000) |_| try cpu.tick();
+    for (0..1000) |_| {
+        cpu.tick() catch |err| {
+            try fatal(err, &cpu);
+        };
+    }
 
     var STDOUT = std.io.getStdOut();
     var stdout = STDOUT.writer();
