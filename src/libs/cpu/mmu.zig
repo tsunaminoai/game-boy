@@ -86,7 +86,7 @@ pub fn StaticMemory() type {
         /// Read up to 2 bytes from memory. The caller is responsible for knowing
         /// how to handle u8 v u16, per the len agrument.
         pub fn read(self: *Self, address: u16, len: u2) ReadError!u16 {
-            std.log.debug("MMU address range: 0x{X:0>2} - 0x{X:0>2}. Reading 0x{X:0>2} =>  0x{X:0>2}\n", .{
+            std.log.debug("MMU address range: 0x{X:0>2} - 0x{X:0>2}. Reading 0x{X:0>2} =>  0x{X:0>2}", .{
                 // self.name,
                 self.startAddress,
                 self.endAddress,
@@ -103,14 +103,14 @@ pub fn StaticMemory() type {
                 2 => std.mem.readInt(u16, @as(*[2]u8, @ptrCast(self.data[address .. address + 2])), .Big),
                 else => return ReadError.InvalidValueLength,
             };
-            std.log.debug("read value {X:0>2}\n", .{value});
+            std.log.debug("MMU read value {X:0>2}", .{value});
             return value;
         }
 
         /// Write up to 2 bytes to memory. The caller is responsible for knowing
         /// how to handle u8 v u16, per the len agrument.
         pub fn write(self: *Self, address: u16, len: u2, value: u16) WriteError!void {
-            std.log.debug("MMU address range: 0x{X:0>2}-0x{X:0>2}. Writing value 0x{X:0>2} to 0x{X:0>2}\n", .{
+            std.log.debug("MMU address range: 0x{X:0>2}-0x{X:0>2}. Writing value 0x{X:0>2} to 0x{X:0>2}", .{
                 // self.name.len,
                 self.startAddress,
                 self.endAddress,
@@ -118,14 +118,14 @@ pub fn StaticMemory() type {
                 address,
             });
             const localAddr = self.translateAddress(address) catch |err| {
-                std.log.debug("Write error: Address out of range.\nAttempted to access: 0x{X:0>2}\nAddress start: 0x{X:0>2} end: 0x{X:0>2}\n", .{
+                std.log.debug("Write error: Address out of range.\nAttempted to access: 0x{X:0>2}\nAddress start: 0x{X:0>2} end: 0x{X:0>2}", .{
                     address,
                     self.startAddress,
                     self.endAddress,
                 });
                 return err;
             };
-            std.log.debug("Writing {X:0>2} to local address: 0x{X:0>2}\n", .{ value, localAddr });
+            std.log.debug("Writing {X:0>2} to local address: 0x{X:0>2}", .{ value, localAddr });
 
             var writeValue: []u8 = undefined;
             switch (len) {
@@ -140,7 +140,7 @@ pub fn StaticMemory() type {
                 },
                 else => return WriteError.InvalidValueLength,
             }
-            std.log.debug("Wrote: {s}\n", .{std.fmt.fmtSliceHexUpper(writeValue)});
+            std.log.debug("MMU Wrote: {s}", .{std.fmt.fmtSliceHexUpper(writeValue)});
         }
 
         /// Print the contents of the memory unit to the console
@@ -174,8 +174,8 @@ test "StaticMemory" {
     try mem.write(0x0, 1, 0xBE);
     try mem.write(0x1, 2, 0xEFED);
 
-    // std.log.debug("{any}\n", .{mem});
-    // std.log.debug("{X:0>4}\n", .{try mem.read(0x2, 1)});
+    // std.log.debug("{any}", .{mem});
+    // std.log.debug("{X:0>4}", .{try mem.read(0x2, 1)});
     try eql(try mem.read(0x0, 2), 0xBEEF);
     try eql(try mem.read(0x2, 1), 0xED);
 }

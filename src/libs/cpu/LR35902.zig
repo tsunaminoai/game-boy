@@ -47,7 +47,7 @@ pub fn CPU() type {
         /// for the correct number of ticks until the next fetch. This decouples
         /// the clock rate of the GB from the lock rate of the emulator
         pub fn tick(self: *Self) CPUError!void {
-            std.log.debug("Tick: {}\tCurrent Cycles: {}\n", .{ ticks, self.remainingCycles });
+            std.log.debug("Tick: {}\tCurrent Cycles: {}", .{ ticks, self.remainingCycles });
             ticks += 1;
             if (self.remainingCycles > 0) {
                 self.remainingCycles -= 1;
@@ -62,20 +62,21 @@ pub fn CPU() type {
             const opcode = try self.ram.read(self.programCounter.*, 1);
             self.currentInstruction = InstructionList[opcode];
             if (self.currentInstruction.?.category == .illegal) {
-                std.log.debug("ILLEGAL OPCODE: 0x{X:0>2}\n", .{opcode});
+                std.log.debug("ILLEGAL OPCODE: 0x{X:0>2}", .{opcode});
             }
 
             self.totalCycles += self.currentInstruction.?.cycles;
             self.remainingCycles += self.currentInstruction.?.cycles;
             self.programCounter.* += 1;
             self.execute() catch |err| {
-                std.log.debug("Failed executing instruction: {}\n", .{self.currentInstruction.?});
+                std.log.debug("Failed executing instruction: {}", .{self.currentInstruction.?});
                 return err;
             };
         }
 
         /// The main switching logic from instruction to emulator method
         pub fn execute(self: *Self) CPUError!void {
+            std.log.debug("Executing instruction: {?}", .{self.currentInstruction});
             switch (self.currentInstruction.?.category) {
                 .byteLoad, .wordLoad => {
                     switch (self.currentInstruction.?.addressing) {
@@ -95,55 +96,73 @@ pub fn CPU() type {
 
         /// Loads an immediate value to the intructed destination
         pub fn loadImmediate(self: *Self, inst: Instruction) CPUError!void {
+            std.log.debug("loadImmediate", .{});
+
             const operand = switch (inst.category) {
                 .byteLoad => try self.ram.read(self.programCounter.*, 1),
                 .wordLoad => try self.ram.read(self.programCounter.*, 2),
                 else => unreachable,
             };
-            // std.log.debug("Writing 0x{X:0>2}@0x{X:0>4} to register {s}\n", .{ operand, self.programCounter.*, @tagName(inst.destination.?) });
+            // std.log.debug("Writing 0x{X:0>2}@0x{X:0>4} to register {s}", .{ operand, self.programCounter.*, @tagName(inst.destination.?) });
             try self.registers.writeReg(inst.destination.?, operand);
         }
 
         /// Loads a value from the source register to the address at the location
         /// speicied by the destination
         pub fn loadAbsolute(self: *Self, inst: Instruction) CPUError!void {
+            std.log.debug("loadAbsolute", .{});
             const commaPosition = std.mem.indexOf(u8, inst.name, ",");
             const parenPosition = std.mem.indexOf(u8, inst.name, "(");
             const decPos = std.mem.indexOf(u8, inst.name, "-");
             const incPos = std.mem.indexOf(u8, inst.name, "+");
+
+            const operand = switch (inst.category) {
+                .byteLoad => try self.ram.read(self.programCounter.*, 1),
+                .wordLoad => try self.ram.read(self.programCounter.*, 2),
+                else => unreachable,
+            };
+
+            const source = if (inst.source) |d| d else null;
+            const destination = if (inst.destination) |d| d else null;
+            if (source == null) std.log.warn("loadAbsolute: source is null", .{});
+            if (destination == null) std.log.warn("loadAbsolute: destination is null", .{});
 
             var address: u16 = 0;
             var value: u16 = 0;
 
             // hacky way to avoid adding more metadata to the opcodes
             if (parenPosition) |pos| {
+
+                // this is for (x),R instructions
                 if (commaPosition.? > pos) {
-                    address = try self.registers.readReg(inst.destination.?);
-                    value = try self.registers.readReg(inst.source.?);
+                    address = if (destination) |d| try self.registers.readReg(d) else operand;
+                    value = try self.registers.readReg(source);
                     try self.ram.write(address, 1, value);
+                    // this is for R,(x) instructions
                 } else if (commaPosition.? < pos) {
-                    address = try self.registers.readReg(inst.source.?);
+                    address = try self.registers.readReg(source);
                     value = try self.ram.read(address, 1);
-                    try self.registers.writeReg(inst.destination.?, value);
+
+                    try self.registers.writeReg(destination, value);
                 }
             } else {
-                address = try self.registers.readReg(inst.destination.?);
-                value = try self.registers.readReg(inst.source.?);
+                address = try self.registers.readReg(destination);
+                value = try self.registers.readReg(source);
                 try self.ram.write(address, 1, value);
             }
 
             if (incPos) |pos| {
                 if (pos > commaPosition.?) {
-                    try self.registers.increment(inst.source.?);
+                    try self.registers.increment(source);
                 } else if (pos < commaPosition.?) {
-                    try self.registers.increment(inst.destination.?);
+                    try self.registers.increment(destination);
                 }
             }
             if (decPos) |pos| {
                 if (pos > commaPosition.?) {
-                    try self.registers.decrement(inst.source.?);
+                    try self.registers.decrement(source);
                 } else if (pos < commaPosition.?) {
-                    try self.registers.decrement(inst.destination.?);
+                    try self.registers.decrement(destination);
                 }
             }
             // std.log.debug(
@@ -154,6 +173,8 @@ pub fn CPU() type {
         /// Loads a value from the source register to the location
         /// speicied by the destination + the program counter
         pub fn loadRelative(self: *Self, inst: Instruction) CPUError!void {
+            std.log.debug("loadImmediate", .{});
+
             const operand = switch (inst.category) {
                 .byteLoad => try self.ram.read(self.programCounter.*, 1),
                 .wordLoad => try self.ram.read(self.programCounter.*, 2),
@@ -179,6 +200,8 @@ pub fn CPU() type {
             try self.ram.write(address, 2, value);
         }
         pub fn alu(self: *Self, inst: Instruction) CPUError!void {
+            std.log.debug("ALU instruction: {}", .{inst});
+
             const originValue = switch (inst.addressing) {
                 .absolute => try self.ram.read(try self.registers.readReg(inst.source.?), 1),
                 .none => try self.registers.readReg(inst.source.?),
@@ -236,6 +259,8 @@ pub fn CPU() type {
             }
         }
         pub fn setFlags(self: *Self, op1: u16, op2: u16, result: u16, sub: bool) void {
+            std.log.debug("setFlags", .{});
+
             const half_carry_8bit = (op1 ^ op2 ^ result) & 0x10 == 0x10;
             const carry_8bit = (op1 ^ op2 ^ result) & 0x100 == 0x100;
             const zero = result & 0xFF == 0;
@@ -333,8 +358,8 @@ test "CPU: Tick & Fetch" {
 
     try cpu.tick();
 
-    // std.log.debug("{s}\n", .{cpu.registers});
-    // std.log.debug("{s}\n", .{cpu.ram});
+    // std.log.debug("{s}", .{cpu.registers});
+    // std.log.debug("{s}", .{cpu.ram});
     try eql(try cpu.registers.readReg(.E), 0x11);
     try eql(cpu.programCounter.*, ldDEA.length + ldEd8.length);
     try eql(cpu.remainingCycles, ldEd8.cycles);

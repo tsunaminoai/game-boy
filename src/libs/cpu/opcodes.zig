@@ -318,9 +318,9 @@ pub const Instructions = [256]Instruction{
     .{ .opcode = 0xDF, .name = "RST 18H", .length = 1, .cycles = 16, .addressing = .none, .category = .jump },
 
     // 0xEX
-    .{ .opcode = 0xE0, .name = "LDH (a8),A", .length = 2, .cycles = 12, .addressing = .relative, .category = .byteLoad, .source = .A },
+    .{ .opcode = 0xE0, .name = "LDH (a8),A", .length = 2, .cycles = 12, .addressing = .absolute, .category = .byteLoad, .source = .A },
     .{ .opcode = 0xE1, .name = "POP HL", .length = 1, .cycles = 12, .addressing = .none, .category = .wordLoad },
-    .{ .opcode = 0xE2, .name = "LD (C),A", .length = 2, .cycles = 8, .addressing = .relative, .category = .byteLoad, .source = .A, .destination = .C },
+    .{ .opcode = 0xE2, .name = "LD (C),A", .length = 2, .cycles = 8, .addressing = .absolute, .category = .byteLoad, .source = .A, .destination = .C },
     .{ .opcode = 0xE3, .name = "ILLEGAL", .length = 1, .cycles = 0, .addressing = .none, .category = .illegal },
     .{ .opcode = 0xE4, .name = "ILLEGAL", .length = 1, .cycles = 0, .addressing = .none, .category = .illegal },
     .{ .opcode = 0xE5, .name = "PUSH HL", .length = 1, .cycles = 16, .addressing = .none, .category = .wordLoad },
@@ -346,11 +346,11 @@ pub const Instructions = [256]Instruction{
     .{ .opcode = 0xF7, .name = "RST 30H", .length = 1, .cycles = 16, .addressing = .none, .category = .jump },
     .{ .opcode = 0xF8, .name = "LD HL,SP+r8", .length = 2, .cycles = 12, .addressing = .relative, .category = .wordLoad },
     .{ .opcode = 0xF9, .name = "LD SP,HL", .length = 1, .cycles = 8, .addressing = .none, .category = .wordLoad, .source = .HL, .destination = .SP },
-    .{ .opcode = 0xFA, .name = "LD A,(a16)", .length = 3, .cycles = 16, .addressing = .relative, .category = .byteLoad },
+    .{ .opcode = 0xFA, .name = "LD A,(a16)", .length = 3, .cycles = 16, .addressing = .absolute, .category = .byteLoad, .destination = .A },
     .{ .opcode = 0xFB, .name = "EI", .length = 1, .cycles = 0, .addressing = .none, .category = .control },
     .{ .opcode = 0xFC, .name = "ILLEGAL", .length = 1, .cycles = 0, .addressing = .none, .category = .illegal },
     .{ .opcode = 0xFD, .name = "ILLEGAL", .length = 1, .cycles = 0, .addressing = .relative, .category = .illegal },
-    .{ .opcode = 0xFE, .name = "CP d8", .length = 2, .cycles = 8, .addressing = .immediate, .category = .byteMath },
+    .{ .opcode = 0xFE, .name = "CP d8", .length = 2, .cycles = 8, .addressing = .immediate, .category = .byteMath, .destination = .A },
     .{ .opcode = 0xFF, .name = "RST 38H", .length = 1, .cycles = 16, .addressing = .none, .category = .jump },
 };
 comptime {

@@ -61,8 +61,18 @@ pub const Register = struct {
         return Self{};
     }
 
+    fn validateRegister(self: *Self, reg: ?RegisterID) bool {
+        _ = self;
+        if (reg == null) return false;
+        return switch (reg.?) {
+            .AF, .BC, .DE, .HL, .SP, .PC, .A, .B, .C, .D, .E, .H, .L => true,
+        };
+    }
     /// Write to a register.
-    pub fn writeReg(self: *Self, reg: RegisterID, value: u16) RegisterError!void {
+    pub fn writeReg(self: *Self, register: ?RegisterID, value: u16) RegisterError!void {
+        if (!self.validateRegister(register)) return error.InvalidRegister;
+        const reg = register.?;
+        std.log.debug("Writing {X:0>4} to {s}", .{ value, @tagName(reg) });
         switch (reg) {
             .AF => self.af.* = value,
             .BC => self.bc.* = value,
@@ -87,23 +97,38 @@ pub const Register = struct {
     }
 
     /// Increment a register by 1
-    pub fn increment(self: *Self, reg: RegisterID) RegisterError!void {
+    pub fn increment(self: *Self, register: ?RegisterID) RegisterError!void {
+        if (!self.validateRegister(register)) return error.InvalidRegister;
+        const reg = register.?;
         const value = try self.readReg(reg) + 1;
-        // std.debug.print("Incrementing: {s} to {X:0>4}\n", .{ @tagName(reg), value });
+
+        std.log.debug("Incrementing: {s} to {X:0>4}", .{ @tagName(reg), value });
 
         try self.writeReg(reg, value);
     }
 
     /// Decrement a register by 1
-    pub fn decrement(self: *Self, reg: RegisterID) RegisterError!void {
+    pub fn decrement(self: *Self, register: ?RegisterID) RegisterError!void {
+        if (!self.validateRegister(register)) return error.InvalidRegister;
+        const reg = register.?;
         const value = try self.readReg(reg) - 1;
-        // std.debug.print("Decrementing: {s} to {X:0>4}\n", .{ @tagName(reg), value });
+        std.log.debug("Decrementing: {s} to {X:0>4}", .{ @tagName(reg), value });
 
         try self.writeReg(reg, value);
     }
 
+    fn fatal(self: *Self, msg: []const u8, args: anytype, err: anyerror) RegisterError!void {
+        _ = self;
+        std.debug.print(msg, .{args});
+        return err;
+    }
+
     /// Read from a register.
-    pub fn readReg(self: *Self, reg: RegisterID) RegisterError!u16 {
+    pub fn readReg(self: *Self, register: ?RegisterID) RegisterError!u16 {
+        if (!self.validateRegister(register)) return error.InvalidRegister;
+        const reg = register.?;
+        std.log.debug("Reading from register {s}", .{@tagName(reg)});
+
         return switch (reg) {
             .AF => self.af.*,
             .BC => self.bc.*,
