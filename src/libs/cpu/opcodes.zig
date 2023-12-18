@@ -47,6 +47,27 @@ pub const Instruction = struct {
     name: []const u8,
     source: ?Register.RegisterID = null,
     destination: ?Register.RegisterID = null,
+
+    // std.debug.print("{s}{s}", .{ op.category.color(), op.name });
+    //     // padding
+    //     for (12 - op.name.len) |_|
+    //         std.debug.print(" ", .{});
+    //     // newline every 16 intstructions
+    //     if (op.opcode & 0xF == 0xF)
+    //         std.debug.print("\x1b[0m\n", .{});
+    pub fn format(self: Instruction, fmt: []const u8, options: anytype, writer: anytype) !void {
+        _ = fmt;
+        _ = options;
+        try writer.print("Opcode: ({X:0>2}) \"{s}\"\nCategory: {s} Length: {} Cycles: {}\nSource: {?} Destination: {?}\n", .{
+            self.opcode,
+            self.name,
+            @tagName(self.category),
+            self.length,
+            self.cycles,
+            self.source,
+            self.destination,
+        });
+    }
 };
 
 // Load 'em up

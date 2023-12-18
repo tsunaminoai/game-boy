@@ -23,7 +23,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
     var cpu = try LR35902.CPU().init(allocator);
     try loadProgram("rom.bin", &cpu);
-    for (0..100) |_| try cpu.tick();
+    for (0..1000) |_| try cpu.tick();
 
     var STDOUT = std.io.getStdOut();
     var stdout = STDOUT.writer();

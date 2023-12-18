@@ -12,6 +12,11 @@ var data = [_]u8{
     0xFF, 0xFE, // sp
     0x00, 0x00, // pc
 };
+
+pub const RegisterError = error{
+    InvalidRegister,
+};
+
 af: *u16 = @as(*u16, @ptrCast(@alignCast(data[0..2]))),
 a: *u8 = &data[1],
 f: *u8 = &data[0],
@@ -53,7 +58,7 @@ pub const RegisterID = enum {
     H,
     L,
 };
-pub fn writeReg(self: *Self, reg: RegisterID, value: u16) !void {
+pub fn writeReg(self: *Self, reg: RegisterID, value: u16) RegisterError!void {
     switch (reg) {
         .AF => self.af.* = value,
         .BC => self.bc.* = value,
@@ -76,20 +81,20 @@ pub fn writeReg(self: *Self, reg: RegisterID, value: u16) !void {
         },
     }
 }
-pub fn increment(self: *Self, reg: RegisterID) !void {
+pub fn increment(self: *Self, reg: RegisterID) RegisterError!void {
     const value = try self.readReg(reg) + 1;
     // std.debug.print("Incrementing: {s} to {X:0>4}\n", .{ @tagName(reg), value });
 
     try self.writeReg(reg, value);
 }
-pub fn decrement(self: *Self, reg: RegisterID) !void {
+pub fn decrement(self: *Self, reg: RegisterID) RegisterError!void {
     const value = try self.readReg(reg) - 1;
     // std.debug.print("Decrementing: {s} to {X:0>4}\n", .{ @tagName(reg), value });
 
     try self.writeReg(reg, value);
 }
 
-pub fn readReg(self: *Self, reg: RegisterID) !u16 {
+pub fn readReg(self: *Self, reg: RegisterID) RegisterError!u16 {
     return switch (reg) {
         .AF => self.af.*,
         .BC => self.bc.*,

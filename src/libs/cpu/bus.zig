@@ -1,7 +1,7 @@
 const std = @import("std");
 const MMU = @import("mmu.zig");
 
-const BusError = error{
+pub const BusError = error{
     InvalidAddress,
     Unimplemented,
 } || std.mem.Allocator.Error || MMU.MemoryError;
@@ -60,9 +60,9 @@ pub fn Bus() type {
         }
         pub fn write(self: *Self, address: u16, len: u2, value: u16) BusError!void {
             var dev = if (try self.getDevice(address)) |d| d else return error.InvalidAddress;
-            std.debug.print("Bus Write (0x{X:02}) using device '{s}'\n", .{ address, dev.name });
+            std.log.debug("Bus Write (0x{X:02}) using device '{s}'\n", .{ address, dev.name });
             return dev.write(address, len, value) catch |err| {
-                std.debug.print("Could not write! \n{s}\n", .{@errorName(err)});
+                std.log.err("Could not write! \n{s}\n", .{@errorName(err)});
                 return err;
             };
         }
@@ -73,7 +73,7 @@ const eql = std.testing.expectEqual;
 test "bus" {
     var bus = try Bus().init(std.testing.allocator);
     defer bus.deinit();
-    // std.debug.print("start: {x:02}\n", .{bus.devices.get("rom0").?.startAddress});
+    // std.log.debug("start: {x:02}\n", .{bus.devices.get("rom0").?.startAddress});
 
     try bus.write(0x3ff0, 1, 0xff);
     try std.testing.expectEqual(try bus.read(0x3ff0, 1), 0xff);

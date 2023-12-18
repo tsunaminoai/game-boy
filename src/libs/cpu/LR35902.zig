@@ -7,6 +7,12 @@ const InstructionList = @import("opcodes.zig").Instructions;
 
 const Flags = struct { carry: bool = false, halfCarry: bool = false, zero: bool = false, subtraction: bool = false };
 
+const CPUError = error{
+    InvalidInstruction,
+    InvalidAddressingForMathOperation,
+    InvalidMathInstruction,
+} || Bus.BusError || Register.RegisterError;
+
 /// The CPU LR35902 is the heart of the gameboy.
 pub fn CPU() type {
     return struct {
@@ -20,8 +26,9 @@ pub fn CPU() type {
         flags: Flags = Flags{},
 
         const Self = @This();
+        var ticks: usize = 0;
 
-        pub fn init(alloc: std.mem.Allocator) !Self {
+        pub fn init(alloc: std.mem.Allocator) CPUError!Self {
             const reg = Register.init();
             const bus = try Bus.Bus().init(alloc);
             return Self{
@@ -37,7 +44,9 @@ pub fn CPU() type {
         /// Ticks the CPU. An instruction is executed all at once. We then wait
         /// for the correct number of ticks until the next fetch. This decouples
         /// the clock rate of the GB from the lock rate of the emulator
-        pub fn tick(self: *Self) !void {
+        pub fn tick(self: *Self) CPUError!void {
+            std.log.debug("Tick: {}\tCurrent Cycles: {}\n", .{ ticks, self.remainingCycles });
+            ticks += 1;
             if (self.remainingCycles > 0) {
                 self.remainingCycles -= 1;
             } else {
@@ -47,24 +56,24 @@ pub fn CPU() type {
 
         /// Fetches the next instruction from memory. Updates cycle counts and
         /// the program counter.
-        pub fn fetch(self: *Self) !void {
+        pub fn fetch(self: *Self) CPUError!void {
             const opcode = try self.ram.read(self.programCounter.*, 1);
             self.currentInstruction = InstructionList[opcode];
             if (self.currentInstruction.?.category == .illegal) {
-                std.debug.print("ILLEGAL OPCODE: 0x{X:0>2}\n", .{opcode});
+                std.log.debug("ILLEGAL OPCODE: 0x{X:0>2}\n", .{opcode});
             }
 
             self.totalCycles += self.currentInstruction.?.cycles;
             self.remainingCycles += self.currentInstruction.?.cycles;
             self.programCounter.* += 1;
             self.execute() catch |err| {
-                std.debug.print("Failed executing instruction: {}\n", .{self.currentInstruction.?});
+                std.log.debug("Failed executing instruction: {}\n", .{self.currentInstruction.?});
                 return err;
             };
         }
 
         /// The main switching logic from instruction to emulator method
-        pub fn execute(self: *Self) !void {
+        pub fn execute(self: *Self) CPUError!void {
             switch (self.currentInstruction.?.category) {
                 .byteLoad, .wordLoad => {
                     switch (self.currentInstruction.?.addressing) {
@@ -83,19 +92,19 @@ pub fn CPU() type {
         }
 
         /// Loads an immediate value to the intructed destination
-        pub fn loadImmediate(self: *Self, inst: Instruction) !void {
+        pub fn loadImmediate(self: *Self, inst: Instruction) CPUError!void {
             const operand = switch (inst.category) {
                 .byteLoad => try self.ram.read(self.programCounter.*, 1),
                 .wordLoad => try self.ram.read(self.programCounter.*, 2),
                 else => unreachable,
             };
-            // std.debug.print("Writing 0x{X:0>2}@0x{X:0>4} to register {s}\n", .{ operand, self.programCounter.*, @tagName(inst.destination.?) });
+            // std.log.debug("Writing 0x{X:0>2}@0x{X:0>4} to register {s}\n", .{ operand, self.programCounter.*, @tagName(inst.destination.?) });
             try self.registers.writeReg(inst.destination.?, operand);
         }
 
         /// Loads a value from the source register to the address at the location
         /// speicied by the destination
-        pub fn loadAbsolute(self: *Self, inst: Instruction) !void {
+        pub fn loadAbsolute(self: *Self, inst: Instruction) CPUError!void {
             const commaPosition = std.mem.indexOf(u8, inst.name, ",");
             const parenPosition = std.mem.indexOf(u8, inst.name, "(");
             const decPos = std.mem.indexOf(u8, inst.name, "-");
@@ -135,28 +144,39 @@ pub fn CPU() type {
                     try self.registers.decrement(inst.destination.?);
                 }
             }
-            // std.debug.print(
+            // std.log.debug(
             //     "Writing from ({s}) 0x{X:0>2} to ({s})0x{X:0>4} \n",
             //     .{ @tagName(inst.destination.?), value, @tagName(inst.source.?), address },
             // );
         }
         /// Loads a value from the source register to the location
         /// speicied by the destination + the program counter
-        pub fn loadRelative(self: *Self, inst: Instruction) !void {
+        pub fn loadRelative(self: *Self, inst: Instruction) CPUError!void {
             const operand = switch (inst.category) {
                 .byteLoad => try self.ram.read(self.programCounter.*, 1),
                 .wordLoad => try self.ram.read(self.programCounter.*, 2),
                 else => unreachable,
             };
-            const address = try self.registers.readReg(inst.destination.?) + operand;
-            const value = try self.registers.readReg(inst.source.?);
-            // std.debug.print(
+
+            const dest = if (inst.destination) |d| d else {
+                std.log.err("Desination not provided for relative load: {}\n", .{inst});
+                return error.InvalidInstruction;
+            };
+
+            const src = if (inst.source) |d| d else {
+                std.log.err("Source not provided for relative load: {}\n", .{inst});
+                return error.InvalidInstruction;
+            };
+
+            const address = try self.registers.readReg(dest) + operand;
+            const value = try self.registers.readReg(src);
+            // std.log.debug(
             //     "Writing from ({s}) 0x{X:0>2} to ({s})0x{X:0>4} \n",
             //     .{ @tagName(inst.destination.?), value, @tagName(inst.source.?), address },
             // );
             try self.ram.write(address, 2, value);
         }
-        pub fn alu(self: *Self, inst: Instruction) !void {
+        pub fn alu(self: *Self, inst: Instruction) CPUError!void {
             const originValue = switch (inst.addressing) {
                 .absolute => try self.ram.read(try self.registers.readReg(inst.source.?), 1),
                 .none => try self.registers.readReg(inst.source.?),
@@ -311,8 +331,8 @@ test "CPU: Tick & Fetch" {
 
     try cpu.tick();
 
-    // std.debug.print("{s}\n", .{cpu.registers});
-    // std.debug.print("{s}\n", .{cpu.ram});
+    // std.log.debug("{s}\n", .{cpu.registers});
+    // std.log.debug("{s}\n", .{cpu.ram});
     try eql(try cpu.registers.readReg(.E), 0x11);
     try eql(cpu.programCounter.*, ldDEA.length + ldEd8.length);
     try eql(cpu.remainingCycles, ldEd8.cycles);
