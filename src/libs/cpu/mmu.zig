@@ -154,7 +154,7 @@ pub fn StaticMemory() type {
             writer: anytype,
         ) !void {
             var limit: usize = options.width orelse 256;
-            std.debug.print("{any}\n", .{limit});
+            std.log.debug("{any}\n", .{limit});
             for (self.data, 0..) |byte, i| {
                 if (i >= self.data.len or i >= limit) {
                     break;
@@ -164,7 +164,7 @@ pub fn StaticMemory() type {
                 }
                 try writer.print("{X:0>2} ", .{byte});
             }
-            std.debug.print("{s}\n", .{fmt});
+            std.log.debug("{s}\n", .{fmt});
         }
     };
 }

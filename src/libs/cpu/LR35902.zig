@@ -211,27 +211,27 @@ pub fn CPU() type {
             const targetValue: u16 = try self.registers.readReg(inst.destination.?);
             var result: u16 = 0;
             var sub: bool = false;
-            std.debug.print("ALU input: origin:{} target:{}\n", .{ originValue, targetValue });
+            std.log.debug("ALU input: origin:{} target:{}\n", .{ originValue, targetValue });
 
             switch (inst.opcode) {
                 0x80...0x87 => { // ADD
-                    result = originValue + targetValue;
+                    result = originValue +% targetValue;
                     try self.registers.writeReg(inst.destination.?, result);
                     self.setFlags(originValue, targetValue, result, sub);
                 },
                 0x88...0x8F, 0xCE => { // ADC
-                    result = originValue + targetValue + @intFromBool(self.flags.carry);
+                    result = originValue +% targetValue +% @intFromBool(self.flags.carry);
                     try self.registers.writeReg(inst.destination.?, result);
                     self.setFlags(originValue, targetValue, result, sub);
                 },
                 0x90...0x97 => { // SUB
-                    result = targetValue - originValue;
+                    result = targetValue -% originValue;
                     sub = true;
                     try self.registers.writeReg(inst.destination.?, result);
                     self.setFlags(originValue, targetValue, result, sub);
                 },
                 0x98...0x9F => { // SBC
-                    result = targetValue - originValue - @intFromBool(self.flags.carry);
+                    result = targetValue -% originValue -% @intFromBool(self.flags.carry);
                     sub = true;
                     try self.registers.writeReg(inst.destination.?, result);
                     self.setFlags(originValue, targetValue, result, sub);
@@ -258,7 +258,7 @@ pub fn CPU() type {
                 },
                 0xFE => { // CMP
                     result = targetValue -% originValue;
-                    std.debug.print("sub: {} - {}  = {}\n", .{
+                    std.log.debug("sub: {} - {}  = {}\n", .{
                         targetValue,
                         originValue,
                         result,
@@ -415,8 +415,8 @@ test "ALU: CMP" {
     // try cpu.ram.write(0x1, 2, 0x1E11); //LD E,d8
     const inst = InstructionList[0xFE];
     try cpu.alu(inst);
-    std.debug.print("{any}\n", .{cpu.flags});
-    std.debug.print("{}\n", .{cpu.programCounter.*});
+    std.log.debug("{any}\n", .{cpu.flags});
+    std.log.debug("{}\n", .{cpu.programCounter.*});
     try std.testing.expectEqualDeep(cpu.flags, .{
         .zero = true,
         .carry = false,

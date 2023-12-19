@@ -123,7 +123,7 @@ pub const Instructions = [256]Instruction{
     .{ .opcode = 0x30, .name = "JR NC,r8", .length = 2, .cycles = 12, .addressing = .relative, .category = .jump },
     .{ .opcode = 0x31, .name = "LD SP,d16", .length = 3, .cycles = 12, .addressing = .immediate, .category = .wordLoad, .destination = .SP },
     .{ .opcode = 0x32, .name = "LD (HL-),A", .length = 1, .cycles = 8, .addressing = .absolute, .category = .byteLoad, .destination = .HL, .source = .A },
-    .{ .opcode = 0x33, .name = "INC SP", .length = 1, .cycles = 8, .addressing = .none, .category = .wordMath },
+    .{ .opcode = 0x33, .name = "INC SP", .length = 1, .cycles = 8, .addressing = .none, .category = .wordMath, .source = .SP, .destination = .SP },
     .{ .opcode = 0x34, .name = "INC (HL)", .length = 1, .cycles = 12, .addressing = .absolute, .category = .byteMath, .source = .HL, .destination = .HL },
     .{ .opcode = 0x35, .name = "DEC (HL)", .length = 1, .cycles = 12, .addressing = .absolute, .category = .byteMath, .source = .HL, .destination = .HL },
     .{ .opcode = 0x36, .name = "LD (HL),d8", .length = 2, .cycles = 12, .addressing = .immediate, .category = .byteLoad },
@@ -131,8 +131,8 @@ pub const Instructions = [256]Instruction{
     .{ .opcode = 0x38, .name = "JR C,r8", .length = 2, .cycles = 12, .addressing = .relative, .category = .jump },
     .{ .opcode = 0x39, .name = "ADD HL,SP", .length = 1, .cycles = 8, .addressing = .none, .category = .wordMath },
     .{ .opcode = 0x3A, .name = "LD A,(HL-)", .length = 1, .cycles = 8, .addressing = .absolute, .category = .byteLoad, .destination = .A, .source = .HL },
-    .{ .opcode = 0x3B, .name = "DEC SP", .length = 1, .cycles = 8, .addressing = .none, .category = .wordMath },
-    .{ .opcode = 0x3C, .name = "INC A", .length = 1, .cycles = 4, .addressing = .none, .category = .byteMath },
+    .{ .opcode = 0x3B, .name = "DEC SP", .length = 1, .cycles = 8, .addressing = .none, .category = .wordMath, .source = .SP, .destination = .SP },
+    .{ .opcode = 0x3C, .name = "INC A", .length = 1, .cycles = 4, .addressing = .none, .category = .byteMath, .source = .A, .destination = .A },
     .{ .opcode = 0x3D, .name = "DEC A", .length = 1, .cycles = 4, .addressing = .none, .category = .byteMath, .source = .A, .destination = .A },
     .{ .opcode = 0x3E, .name = "LD A,d8", .length = 2, .cycles = 8, .addressing = .immediate, .category = .byteLoad, .destination = .A },
     .{ .opcode = 0x3F, .name = "CCF", .length = 1, .cycles = 4, .addressing = .none, .category = .byteMath },
@@ -359,16 +359,16 @@ comptime {
 
 /// Prints the known opcodes in terminal
 pub fn printOpcodes() void {
-    std.debug.print("\n", .{});
+    std.log.debug("\n", .{});
 
     for (Instructions) |op| {
-        std.debug.print("{s}{s}", .{ op.category.color(), op.name });
+        std.log.debug("{s}{s}", .{ op.category.color(), op.name });
         // padding
         for (12 - op.name.len) |_|
-            std.debug.print(" ", .{});
+            std.log.debug(" ", .{});
         // newline every 16 intstructions
         if (op.opcode & 0xF == 0xF)
-            std.debug.print("\x1b[0m\n", .{});
+            std.log.debug("\x1b[0m\n", .{});
     }
 }
 

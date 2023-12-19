@@ -119,7 +119,7 @@ pub const Register = struct {
 
     fn fatal(self: *Self, msg: []const u8, args: anytype, err: anyerror) RegisterError!void {
         _ = self;
-        std.debug.print(msg, .{args});
+        std.log.debug(msg, .{args});
         return err;
     }
 
@@ -179,5 +179,5 @@ test "More Registers" {
     try eql(try reg.readReg(.B), 0xF0);
     try eql(try reg.readReg(.C), 0x0F);
 
-    // std.debug.print("{s}\n", .{reg});
+    // std.log.debug("{s}\n", .{reg});
 }
