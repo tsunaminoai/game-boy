@@ -258,18 +258,25 @@ pub fn CPU() type {
                 },
                 0xFE => { // CMP
                     result = targetValue -% originValue;
-                    std.log.debug("sub: {} - {}  = {}\n", .{
-                        targetValue,
-                        originValue,
-                        result,
-                    });
-                    self.setFlags(targetValue, originValue, result, true);
+                    sub = true;
+
+                    self.flags.zero = result == 0;
+
+                    self.setFlags(targetValue, originValue, result, sub);
                 },
                 0x05, 0x0D, 0x15, 0x1D, 0x25, 0x2D, 0x35, 0x3D => { // DECs
-                    try self.registers.writeReg(inst.destination.?, try self.registers.readReg(inst.source.?) - 1);
+                    if (inst.addressing == .absolute) {
+                        try self.ram.write(try self.registers.readReg(inst.destination.?), 1, originValue - 1);
+                    } else if (inst.addressing == .none) {
+                        try self.registers.writeReg(inst.destination.?, originValue - 1);
+                    }
                 },
                 0x04, 0x0C, 0x14, 0x1C, 0x24, 0x2C, 0x34, 0x3C => { // INCs
-                    try self.registers.writeReg(inst.destination.?, try self.registers.readReg(inst.source.?) + 1);
+                    if (inst.addressing == .absolute) {
+                        try self.ram.write(try self.registers.readReg(inst.destination.?), 1, originValue + 1);
+                    } else if (inst.addressing == .none) {
+                        try self.registers.writeReg(inst.destination.?, originValue + 1);
+                    }
                 },
                 else => return error.InvalidMathInstruction,
             }
@@ -279,7 +286,7 @@ pub fn CPU() type {
 
             const half_carry_8bit = (op1 ^ op2 ^ result) & 0x10 == 0x10;
             const carry_8bit = (op1 ^ op2 ^ result) & 0x100 == 0x100;
-            const zero = result & 0xFF == 0;
+            const zero = (result & 0xFF) == 0;
             self.flags = .{
                 .carry = carry_8bit,
                 .halfCarry = half_carry_8bit,
@@ -403,6 +410,7 @@ test "ALU: ADD" {
     try eql(cpu.flags, .{ .zero = false, .carry = true, .halfCarry = true, .subtraction = false });
 }
 
+//todo: this test is failing and even with live debugging, it *should* be working
 test "ALU: CMP" {
     var cpu = try CPU().init(std.testing.allocator);
     defer cpu.deinit();
@@ -415,14 +423,44 @@ test "ALU: CMP" {
     // try cpu.ram.write(0x1, 2, 0x1E11); //LD E,d8
     const inst = InstructionList[0xFE];
     try cpu.alu(inst);
-    std.log.debug("{any}\n", .{cpu.flags});
-    std.log.debug("{}\n", .{cpu.programCounter.*});
+    std.debug.print("{any}\n", .{cpu.flags});
     try std.testing.expectEqualDeep(cpu.flags, .{
         .zero = true,
         .carry = false,
         .halfCarry = false,
         .subtraction = true,
     });
+}
+
+test "ALU: INC/DEC" {
+    var cpu = try CPU().init(std.testing.allocator);
+    defer cpu.deinit();
+
+    // INC A
+    try cpu.registers.writeReg(.A, 0x42);
+    var inst = InstructionList[0x3C];
+    try cpu.alu(inst);
+    try eql(try cpu.registers.readReg(.A), 0x43);
+
+    // DEC A
+    try cpu.registers.writeReg(.A, 0x42);
+    inst = InstructionList[0x3D];
+    try cpu.alu(inst);
+    try eql(try cpu.registers.readReg(.A), 0x41);
+
+    // INC (HL)
+    try cpu.registers.writeReg(.HL, 0x1337);
+    try cpu.ram.write(0x1337, 1, 0x42);
+    inst = InstructionList[0x34];
+    try cpu.alu(inst);
+    try eql(try cpu.ram.read(0x1337, 1), 0x43);
+
+    // DEC (HL)
+    try cpu.registers.writeReg(.HL, 0x1337);
+    try cpu.ram.write(0x1337, 1, 0x42);
+    inst = InstructionList[0x35];
+    try cpu.alu(inst);
+    try eql(try cpu.ram.read(0x1337, 1), 0x41);
 }
 
 test {

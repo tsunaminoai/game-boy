@@ -33,8 +33,8 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
     var cpu = try GB.LR35902.CPU().init(allocator);
-    try loadProgram("rom.bin", &cpu);
-    for (0..10_000_000) |_| {
+    try loadProgram("tetris.bin", &cpu);
+    for (0..100_000) |_| {
         cpu.tick() catch |err| {
             try fatal(err, &cpu);
         };
@@ -45,7 +45,7 @@ pub fn main() !void {
     try stdout.print("Registers:\n{s}\n", .{cpu.registers});
     var mem = try cpu.ram.getDevice(0x8000);
 
-    try stdout.print("Memory:\n{}\n", .{mem.?});
+    try stdout.print("Memory:\n{:320}\n", .{mem.?});
 }
 
 test {

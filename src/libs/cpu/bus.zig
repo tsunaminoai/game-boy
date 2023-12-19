@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const MMU = @import("mmu.zig");
+const PPU = @import("ppu.zig");
 
 pub const BusError = error{
     InvalidAddress,
@@ -25,8 +26,12 @@ pub fn Bus() type {
             var d = std.StringHashMap(MMU.StaticMemory()).init(ally);
 
             // var rom0 = try MMU.StaticMemory().init("rom0", 0x4000, 0, 0x3fff, ally);
-            var rom0 = try MMU.StaticMemory().init("rom0", 0xffff, 0, 0xffff, ally);
+            var rom0 = try MMU.StaticMemory().init("rom0", 0x4000, 0, 0x3fff, ally);
+            var bank1 = try MMU.StaticMemory().init("bank1", 0x4000, 0x4000, 0x7fff, ally);
+            var vram = try MMU.StaticMemory().init("vram", 0x10000 - 0x8000, 0x8000, 0xffff, ally);
             try d.put("rom0", rom0);
+            try d.put("bank1", bank1);
+            try d.put("vram", vram);
 
             return Self{
                 .arena = arena,
@@ -47,9 +52,9 @@ pub fn Bus() type {
         /// the address is not mapped to a device.
         pub fn getDevice(self: *Self, address: u16) BusError!?MMU.StaticMemory() {
             return switch (address) {
-                0x0000...0xFFFF => self.devices.get("rom0").?, // 16k rom bank 0    ¯|_ 32k cart
-                // 0x4000...0x7FFF => error.Unimplemented, // 16k switable bank _|
-                // 0x8000...0x9FFF => error.Unimplemented, // 8k video ram
+                0x0000...0x3FFF => self.devices.get("rom0").?, // 16k rom bank 0    ¯|_ 32k cart
+                0x4000...0x7FFF => self.devices.get("bank1").?, // 16k switable bank _|
+                0x8000...0xFFFF => self.devices.get("vram").?, // 8k video ram
                 // 0xA000...0xBFFF => error.Unimplemented, // 8k switchable ram bank
                 // 0xC000...0xDFFF => error.Unimplemented, // 8k internal ram
                 // 0xE000...0xFD77 => error.Unimplemented, // Internal ram echo
