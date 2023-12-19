@@ -23,7 +23,8 @@ fn fatal(err: anyerror, cpu: *GB.LR35902.CPU()) !noreturn {
     try stdout.print("Fatal error: {s}\n", .{@errorName(err)});
     try stdout.print("Registers:\n{s}\n", .{cpu.registers});
     // try stdout.print("Stack:\n{s}\n", .{cpu.stack});
-    try stdout.print("Memory:\n{}\n", .{cpu.ram});
+    var mem = try cpu.ram.getDevice(0x8000);
+    try stdout.print("Memory:\n{}\n", .{mem.?});
     std.os.exit(1);
 }
 
@@ -42,6 +43,9 @@ pub fn main() !void {
     var STDOUT = std.io.getStdOut();
     var stdout = STDOUT.writer();
     try stdout.print("Registers:\n{s}\n", .{cpu.registers});
+    var mem = try cpu.ram.getDevice(0x8000);
+
+    try stdout.print("Memory:\n{}\n", .{mem.?});
 }
 
 test {

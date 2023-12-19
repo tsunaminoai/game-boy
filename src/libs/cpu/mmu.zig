@@ -144,21 +144,27 @@ pub fn StaticMemory() type {
         }
 
         /// Print the contents of the memory unit to the console
+        /// By default, it will display the first 256 bytes.
+        /// This can be changed by using {:NNN} as the formatting string
+        /// where NNN is an integer.
         pub fn format(
             self: Self,
-            comptime _: []const u8,
-            _: std.fmt.FormatOptions,
+            comptime fmt: []const u8,
+            options: std.fmt.FormatOptions,
             writer: anytype,
         ) !void {
+            var limit: usize = options.width orelse 256;
+            std.debug.print("{any}\n", .{limit});
             for (self.data, 0..) |byte, i| {
-                if (i >= self.data.len) {
+                if (i >= self.data.len or i >= limit) {
                     break;
                 }
                 if (i % 16 == 0) {
-                    try writer.print("\n0x{X:0>4} | ", .{i});
+                    try writer.print("\n0x{X:0>4} | ", .{i + self.startAddress});
                 }
                 try writer.print("{X:0>2} ", .{byte});
             }
+            std.debug.print("{s}\n", .{fmt});
         }
     };
 }
