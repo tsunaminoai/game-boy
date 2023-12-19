@@ -173,7 +173,7 @@ pub fn CPU() type {
         /// Loads a value from the source register to the location
         /// speicied by the destination + the program counter
         pub fn loadRelative(self: *Self, inst: Instruction) CPUError!void {
-            std.log.debug("loadImmediate", .{});
+            std.log.debug("loadRelative", .{});
 
             const operand = switch (inst.category) {
                 .byteLoad => try self.ram.read(self.programCounter.*, 1),
@@ -256,7 +256,7 @@ pub fn CPU() type {
                     try self.registers.writeReg(inst.destination.?, result);
                     self.flags.zero = result == 0;
                 },
-                0xFE => {
+                0xFE => { // CMP
                     result = targetValue -% originValue;
                     std.debug.print("sub: {} - {}  = {}\n", .{
                         targetValue,
@@ -265,8 +265,11 @@ pub fn CPU() type {
                     });
                     self.setFlags(targetValue, originValue, result, true);
                 },
-                0x05 => {
+                0x05, 0x0D, 0x15, 0x1D, 0x25, 0x2D, 0x35, 0x3D => { // DECs
                     try self.registers.writeReg(inst.destination.?, try self.registers.readReg(inst.source.?) - 1);
+                },
+                0x04, 0x0C, 0x14, 0x1C, 0x24, 0x2C, 0x34, 0x3C => { // INCs
+                    try self.registers.writeReg(inst.destination.?, try self.registers.readReg(inst.source.?) + 1);
                 },
                 else => return error.InvalidMathInstruction,
             }
