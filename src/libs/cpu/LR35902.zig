@@ -211,6 +211,7 @@ pub fn CPU() type {
             const targetValue: u16 = try self.registers.readReg(inst.destination.?);
             var result: u16 = 0;
             var sub: bool = false;
+            std.debug.print("ALU input: origin:{} target:{}\n", .{ originValue, targetValue });
 
             switch (inst.opcode) {
                 0x80...0x87 => { // ADD
@@ -250,10 +251,22 @@ pub fn CPU() type {
                     try self.registers.writeReg(inst.destination.?, result);
                     self.flags.zero = result == 0;
                 },
-                0xB8...0xBF => { // CP
+                0xB8...0xBF => { // CMP
                     result = @intFromBool(targetValue == originValue);
                     try self.registers.writeReg(inst.destination.?, result);
                     self.flags.zero = result == 0;
+                },
+                0xFE => {
+                    result = targetValue -% originValue;
+                    std.debug.print("sub: {} - {}  = {}\n", .{
+                        targetValue,
+                        originValue,
+                        result,
+                    });
+                    self.setFlags(targetValue, originValue, result, true);
+                },
+                0x05 => {
+                    try self.registers.writeReg(inst.destination.?, try self.registers.readReg(inst.source.?) - 1);
                 },
                 else => return error.InvalidMathInstruction,
             }
@@ -370,12 +383,14 @@ test "ALU: ADD" {
     var cpu = try CPU().init(std.testing.allocator);
     defer cpu.deinit();
 
+    // ADD A, A
     try cpu.registers.writeReg(.A, 2);
     try cpu.registers.writeReg(.L, 243);
     var inst = InstructionList[0x85];
     try cpu.alu(inst);
     try eql(try cpu.registers.readReg(.A), 245);
 
+    // ADD A,(HL)
     try cpu.registers.writeReg(.HL, 0x1337);
     try cpu.registers.writeReg(.A, 0xFF);
     try cpu.ram.write(0x1337, 1, 7);
@@ -383,6 +398,28 @@ test "ALU: ADD" {
     try cpu.alu(inst);
     try eql(try cpu.registers.readReg(.A), 6);
     try eql(cpu.flags, .{ .zero = false, .carry = true, .halfCarry = true, .subtraction = false });
+}
+
+test "ALU: CMP" {
+    var cpu = try CPU().init(std.testing.allocator);
+    defer cpu.deinit();
+
+    // CMP d8
+    try cpu.registers.writeReg(.A, 0x42);
+    try cpu.ram.write(0x0, 1, 0x42);
+
+    //     try cpu.ram.write(0x0, 1, 0x12); // LD (DE),A
+    // try cpu.ram.write(0x1, 2, 0x1E11); //LD E,d8
+    const inst = InstructionList[0xFE];
+    try cpu.alu(inst);
+    std.debug.print("{any}\n", .{cpu.flags});
+    std.debug.print("{}\n", .{cpu.programCounter.*});
+    try std.testing.expectEqualDeep(cpu.flags, .{
+        .zero = true,
+        .carry = false,
+        .halfCarry = false,
+        .subtraction = true,
+    });
 }
 
 test {

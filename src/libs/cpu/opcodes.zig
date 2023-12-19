@@ -71,7 +71,7 @@ pub const Instructions = [256]Instruction{
     .{ .opcode = 0x02, .name = "LD (BC),A", .length = 1, .cycles = 8, .addressing = .absolute, .category = .byteLoad, .source = .A, .destination = .BC },
     .{ .opcode = 0x03, .name = "INC BC", .length = 1, .cycles = 8, .addressing = .none, .category = .wordMath },
     .{ .opcode = 0x04, .name = "INC B", .length = 1, .cycles = 4, .addressing = .none, .category = .byteMath },
-    .{ .opcode = 0x05, .name = "DEC B", .length = 1, .cycles = 4, .addressing = .none, .category = .byteMath },
+    .{ .opcode = 0x05, .name = "DEC B", .length = 1, .cycles = 4, .addressing = .none, .category = .byteMath, .source = .B, .destination = .B },
     .{ .opcode = 0x06, .name = "LD B,d8", .length = 2, .cycles = 8, .addressing = .immediate, .category = .byteLoad, .destination = .B },
     .{ .opcode = 0x07, .name = "RLCA", .length = 1, .cycles = 4, .addressing = .none, .category = .bit },
     .{ .opcode = 0x08, .name = "LD (a16),SP", .length = 3, .cycles = 20, .addressing = .relative, .category = .wordLoad, .source = .SP, .destination = .PC },
@@ -350,7 +350,7 @@ pub const Instructions = [256]Instruction{
     .{ .opcode = 0xFB, .name = "EI", .length = 1, .cycles = 0, .addressing = .none, .category = .control },
     .{ .opcode = 0xFC, .name = "ILLEGAL", .length = 1, .cycles = 0, .addressing = .none, .category = .illegal },
     .{ .opcode = 0xFD, .name = "ILLEGAL", .length = 1, .cycles = 0, .addressing = .relative, .category = .illegal },
-    .{ .opcode = 0xFE, .name = "CP d8", .length = 2, .cycles = 8, .addressing = .immediate, .category = .byteMath, .destination = .A },
+    .{ .opcode = 0xFE, .name = "CMP d8", .length = 2, .cycles = 8, .addressing = .immediate, .category = .byteMath, .destination = .A },
     .{ .opcode = 0xFF, .name = "RST 38H", .length = 1, .cycles = 16, .addressing = .none, .category = .jump },
 };
 comptime {
