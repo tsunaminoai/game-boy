@@ -219,7 +219,7 @@ pub fn CPU() type {
                     try self.registers.writeReg(inst.destination.?, result);
                     self.setFlags(originValue, targetValue, result, sub);
                 },
-                0x88...0x8F => { // ADC
+                0x88...0x8F, 0xCE => { // ADC
                     result = originValue + targetValue + @intFromBool(self.flags.carry);
                     try self.registers.writeReg(inst.destination.?, result);
                     self.setFlags(originValue, targetValue, result, sub);
