@@ -23,6 +23,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = .{ .path = "src/libs/cpu/cpu.zig" },
         .target = target,
         .optimize = optimize,
+        .single_threaded = true,
     });
 
     const exe = b.addExecutable(.{
@@ -70,6 +71,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = .{ .path = "src/libs/cpu/LR35902.zig" },
         .target = target,
         .optimize = optimize,
+        .single_threaded = true,
     });
 
     const run_unit_tests = b.addRunArtifact(unit_tests);
