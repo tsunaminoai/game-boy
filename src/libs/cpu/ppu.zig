@@ -374,3 +374,77 @@ test "LCD - LYC" {
     try std.testing.expectEqual(lcd.stat_register.updateLYC(lcd.lyc, lcd.ly), .lcdC);
     try std.testing.expectEqual(lcd.getStat() & 0b100, 0b100);
 }
+
+const tile_array_size = Num_Tiles * 8 * 8 * 4;
+
+pub fn Renderer() type {
+    return struct {
+        buffer_dims: [2]u16 = [_]u16{ Num_Rows, Num_Cols },
+
+        screen_buffer_raw: [Num_Cols * Num_Rows * 4]u8 = [_]u8{0x0} ** (Num_Rows * Num_Cols * 4),
+        tile_cache_raw: [tile_array_size]u8 = [_]u8{0} ** tile_array_size,
+        sprite_cache_0_raw: [tile_array_size]u8 = [_]u8{0} ** tile_array_size,
+        sprite_cache_1_raw: [tile_array_size]u8 = [_]u8{0} ** tile_array_size,
+        sprites_to_render: [10]i32 = [_]i32{0} ** 10,
+
+        tile_cache_state: [Num_Tiles]u8 = [_]u8{0} ** Num_Tiles,
+        sprite_cache_0_state: [Num_Tiles]u8 = [_]u8{0} ** Num_Tiles,
+        sprite_cache_1_state: [Num_Tiles]u8 = [_]u8{0} ** Num_Tiles,
+
+        scan_line_params: [Num_Rows][5]u8 = [_][]u8{.{ 0, 0, 0, 0, 0 }} ** Num_Rows,
+        ly_window: i16 = 0,
+
+        const Rend = @This();
+
+        pub fn init() Rend {
+            return Renderer(){};
+        }
+
+        pub fn scanline(self: *Rend, lcd: LCD(), y: u16) void {
+            const vp = lcd.getViewPort();
+            const window = lcd.getWindowPosition();
+
+            self.scan_line_params[y][0] = vp[0];
+            self.scan_line_params[y][1] = vp[1];
+            self.scan_line_params[y][2] = window[0];
+            self.scan_line_params[y][3] = window[1];
+            self.scan_line_params[y][4] = LCD_Register.tiledata_select;
+
+            if (lcd.disable_render)
+                return;
+
+            const bg_offset = if (!lcd.lcd_register.isSet(.backgroundmap_select)) 0x1800 else 0x1C00;
+            _ = bg_offset;
+            const wmap = if (!lcd.lcd_register.isSet(.windowmap_select)) 0x1800 else 0x1C00;
+
+            const offset = vp[0] & 0b111;
+            _ = offset;
+
+            if (lcd.lcd_register.isSet(.window_enable) and window[1] <= y and window[0] < Num_Cols)
+                self.ly_window += 1;
+
+            for (0..Num_Cols) |x| {
+                if (lcd.lcd_register.isSet(.window_enable) and window[1] <= y and window[0] <= x) {
+                    const tile_address = wmap + (self.ly_window) / (8 * 32 % 0x400) + (x - window[0] / 8) % 32;
+                    var window_tile = lcd.vram[tile_address];
+
+                    if (!lcd.lcd_register.isSet(.tiledata_select))
+                        window_tile = (window_tile ^ 0x80) + 128;
+
+                    const bg_priority = 0x10;
+                    _ = bg_priority;
+                    self.update_tilecache(lcd, window_tile, 0);
+                    const xx = (x - window[0]) % 8;
+                    const yy = 8 * window_tile + self.ly_window % 8;
+                    const pixel = lcd.bgp.color(self.tile_cache_raw[yy][xx]);
+                    _ = pixel;
+                } else {
+                    self.screen_buffer_raw[y][x] = lcd.bgp.color(0);
+                }
+            }
+
+            if (y == 143)
+                self.ly_window = -1;
+        }
+    };
+}
