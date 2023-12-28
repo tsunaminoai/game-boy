@@ -1,4 +1,5 @@
 const std = @import("std");
+const raylib = @import("raylib/build.zig");
 
 // Although this function looks imperative, note that its job is to
 // declaratively construct a build graph that will be executed by an external
@@ -35,6 +36,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     exe.linkLibrary(gb_lib);
+    raylib.addTo(b, exe, target, optimize, .{});
+
     exe.addModule("gameboy", gb_mod);
 
     // This declares intent for the executable to be installed into the
