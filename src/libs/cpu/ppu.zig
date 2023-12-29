@@ -382,12 +382,14 @@ pub fn Renderer() type {
         buffer_dims: [2]u16 = [_]u16{ Num_Rows, Num_Cols },
 
         screen_buffer_raw: [Num_Cols * Num_Rows * 4]u8 = [_]u8{0x0} ** (Num_Rows * Num_Cols * 4),
-        tile_cache_raw: [tile_array_size]u8 = [_]u8{0} ** tile_array_size,
+        tile_cache_0_raw: [tile_array_size]u8 = [_]u8{0} ** tile_array_size,
+        tile_cache_1_raw: [tile_array_size]u8 = [_]u8{0} ** tile_array_size,
         sprite_cache_0_raw: [tile_array_size]u8 = [_]u8{0} ** tile_array_size,
         sprite_cache_1_raw: [tile_array_size]u8 = [_]u8{0} ** tile_array_size,
         sprites_to_render: [10]i32 = [_]i32{0} ** 10,
 
-        tile_cache_state: [Num_Tiles]u8 = [_]u8{0} ** Num_Tiles,
+        tile_cache_0_state: [Num_Tiles]u8 = [_]u8{0} ** Num_Tiles,
+        tile_cache_1_state: [Num_Tiles]u8 = [_]u8{0} ** Num_Tiles,
         sprite_cache_0_state: [Num_Tiles]u8 = [_]u8{0} ** Num_Tiles,
         sprite_cache_1_state: [Num_Tiles]u8 = [_]u8{0} ** Num_Tiles,
 
@@ -436,7 +438,7 @@ pub fn Renderer() type {
                     self.update_tilecache(lcd, window_tile, 0);
                     const xx = (x - window[0]) % 8;
                     const yy = 8 * window_tile + self.ly_window % 8;
-                    const pixel = lcd.bgp.color(self.tile_cache_raw[yy][xx]);
+                    const pixel = lcd.bgp.color(self.tile_cache_0_raw[yy][xx]);
                     _ = pixel;
                 } else {
                     self.screen_buffer_raw[y][x] = lcd.bgp.color(0);
@@ -445,6 +447,243 @@ pub fn Renderer() type {
 
             if (y == 143)
                 self.ly_window = -1;
+        }
+
+        pub fn sortSprites(self: *Rend, sprite_count: usize) void {
+            for (1..sprite_count) |i| {
+                const key = self.sprites_to_render[i];
+                var j = i - 1;
+
+                while (j >= 0 and key > self.sprites_to_render[j]) {
+                    self.sprites_to_render[j + 1] = self.sprites_to_render[j];
+                    j -= 1;
+                }
+                self.sprites_to_render[j + 1] = key;
+            }
+        }
+
+        pub fn scanlineSprites(self: *Rend, lcd: LCD(), ly: usize, buffer: []const u8, ignore_priority: bool) void {
+            if (!lcd.lcd_register.isSet(.sprite_enable) or lcd.disable_render)
+                return;
+
+            const sprite_height = if (lcd.lcd_register.isSet(.sprite_height)) 16 else 8;
+            var sprite_count = 0;
+
+            var n = 0;
+            while (n <= 0xA0) : (n += 4) {
+                const y = lcd.oam[n] - 16;
+                const x = lcd.oam[n + 1] - 8;
+
+                if (y <= ly and ly < y + sprite_height) {
+                    self.sprites_to_render[sprite_count] = x << 16 | n;
+
+                    sprite_count += 1;
+                }
+                if (sprite_count == 10)
+                    break;
+            }
+
+            self.sortSprites(sprite_count);
+
+            for (self.sprites_to_render[0..sprite_count]) |_n| {
+                const nn = _n & 0xFF;
+                _ = nn;
+
+                const y = lcd.oam[n] - 16;
+                var x = lcd.oam[n + 1] - 8;
+                var tile_idx = lcd.oam[n + 2];
+                if (sprite_height == 16)
+                    tile_idx &= 0b1111_1110;
+
+                const attributes = lcd.oam[n + 3];
+                const xFlip = attributes & 0b0010_0000;
+                const yFlip = attributes & 0b0100_0000;
+                const sprite_priority = (attributes & 0b1000_0000) and !ignore_priority;
+
+                const palette = 0;
+                _ = palette;
+                var sprite_cache: *[]u8 = undefined;
+
+                if (attributes & 0b1_0000 == 0b1_0000) {
+                    self.update_sprite_cache_1(lcd, tile_idx, 0);
+                    if (lcd.lcd_register.isSet(.sprite_height))
+                        self.update_sprite_cache_1(lcd, tile_idx + 1, 0);
+                    sprite_cache = &self.sprite_cache_1_raw;
+                } else {
+                    self.update_sprite_cache_0(lcd, tile_idx, 0);
+                    if (lcd.lcd_register.isSet(.sprite_height))
+                        self.update_sprite_cache_0(lcd, tile_idx + 1, 0);
+                    sprite_cache = &self.sprite_cache_0_raw;
+                }
+
+                const dy = ly - y;
+                const yy = if (yFlip) sprite_height - dy - 1 else dy;
+
+                for (0..8) |dx| {
+                    const xx = if (xFlip) 7 - dx else dx;
+                    _ = xx;
+                    const color_code = sprite_cache[8 * tile_idx + yy][x];
+                    if (0 <= x and x < Num_Cols and color_code != 0) {
+                        const pixel = if (attributes & 0b1_0000 == 0b1_0000)
+                            lcd.obp1.color(color_code)
+                        else
+                            lcd.obp0.color(color_code);
+                        if (sprite_priority) {
+                            if (buffer[ly][x] & Col0_Flag == Col0_Flag)
+                                buffer[ly][x] = pixel;
+                        } else buffer[ly][x] = pixel;
+                    }
+                    x += 1;
+                }
+                x -= 8;
+            }
+        }
+
+        pub fn clearCache(self: *Rend) void {
+            self.clearTileCache();
+            self.clearSpriteCache0();
+            self.clearSpriteCache1();
+        }
+
+        pub fn invalidate_tile(self: *Rend, tile: usize, vblank: bool) void {
+            if (vblank) {
+                self.tile_cache_0_state[tile] = 0;
+                self.tile_cache_1_state[tile] = 0;
+                self.sprite_cache_0_state[tile] = 0;
+                self.sprite_cache_1_state[tile] = 0;
+            } else {
+                self.tile_cache_0_state[tile] = 0;
+                self.sprite_cache_0_state[tile] = 0;
+                self.sprite_cache_1_state[tile] = 0;
+            }
+        }
+        pub fn clearTileCache(self: *Rend) void {
+            for (self.tile_cache_0_state) |*s|
+                s.* = 0;
+        }
+        pub fn clearSpriteCache0(self: *Rend) void {
+            for (self.sprite_cache_0_state) |*s|
+                s.* = 0;
+        }
+        pub fn clearSpriteCache1(self: *Rend) void {
+            for (self.sprite_cache_1_state) |*s|
+                s.* = 0;
+        }
+        pub fn updateTileCache(self: *Rend, lcd: LCD(), t: usize, bank: usize) void {
+            _ = bank;
+
+            if (self.tile_cache_0_state[t])
+                return;
+
+            var k = 0;
+            while (k <= 16) : (k += 2) {
+                const byte1 = lcd.vram[t * 16 + k];
+                _ = byte1;
+                const byte2 = lcd.vram[t * 16 + k + 1];
+                _ = byte2;
+                const y = (t * 16 + k) / 2;
+
+                for (0..8) |x| {
+                    const color_code = 0x0;
+                    self.tile_cache_0_raw[y][x] = color_code;
+                }
+            }
+            self.tile_cache_0_state[t] = 1;
+        }
+
+        pub fn updateSpriteCache0(self: *Rend, lcd: LCD(), t: usize, bank: usize) void {
+            _ = bank;
+
+            if (self.sprite_cache_0_state[t])
+                return;
+
+            var k = 0;
+            while (k <= 16) : (k += 2) {
+                const byte1 = lcd.vram[t * 16 + k];
+                _ = byte1;
+                const byte2 = lcd.vram[t * 16 + k + 1];
+                _ = byte2;
+                const y = (t * 16 + k) / 2;
+
+                for (0..8) |x| {
+                    const color_code = 0x0;
+                    self.sprite_cache_0_raw[y][x] = color_code;
+                }
+            }
+            self.sprite_cache_0_state[t] = 1;
+        }
+        pub fn updateSpriteCache1(self: *Rend, lcd: LCD(), t: usize, bank: usize) void {
+            _ = bank;
+
+            if (self.sprite_cache_1_state[t])
+                return;
+
+            var k = 0;
+            while (k <= 16) : (k += 2) {
+                const byte1 = lcd.vram[t * 16 + k];
+                _ = byte1;
+                const byte2 = lcd.vram[t * 16 + k + 1];
+                _ = byte2;
+                const y = (t * 16 + k) / 2;
+
+                for (0..8) |x| {
+                    const color_code = 0x0;
+                    self.sprite_cache_1_raw[y][x] = color_code;
+                }
+            }
+            self.sprite_cache_1_state[t] = 1;
+        }
+
+        pub fn blankScreen(self: *Rend, lcd: LCD()) void {
+            for (0..Num_Rows) |y| {
+                for (0..Num_Cols) |x|
+                    self.screen_buffer_raw[y][x] = lcd.bgp.color(0);
+            }
+        }
+
+        pub fn saveState(self: *Rend, f: std.fs.File) !void {
+            for (0..Num_Rows) |y| {
+                try f.write(self.scan_line_params[y][0]);
+                try f.write(self.scan_line_params[y][1]);
+                try f.write((self.scan_line_params[y][2] + 7) & 0xFF);
+                try f.write(self.scan_line_params[y][3]);
+                try f.write(self.scan_line_params[y][4]);
+            }
+            for (0..Num_Rows) |y| {
+                for (0..Num_Cols) |x|
+                    f.write(self.screen_buffer_raw[y][x]);
+            }
+        }
+
+        pub fn loadState(self: *Rend, f: std.fs.File) !void {
+            var reader = f.reader();
+            for (0..Num_Rows) |y| {
+                self.scan_line_params[y][0] = try reader.readByte();
+                self.scan_line_params[y][1] = try reader.readByte();
+                self.scan_line_params[y][2] = (try reader.readByte() - 7) & 0xFF;
+                self.scan_line_params[y][3] = try reader.readByte();
+                self.scan_line_params[y][4] = try reader.readByte();
+            }
+
+            for (0..Num_Rows) |y| {
+                for (0..Num_Cols) |x|
+                    self.screen_buffer_raw[y][x] = try reader.readByte();
+            }
+            self.clearCache();
+        }
+
+        /// Convert 2 bytes into color code at a given offset.
+        ///
+        /// The colors are 2 bit and are found like this:
+        ///
+        /// Color of the first pixel is 0b10
+        /// | Color of the second pixel is 0b01
+        /// v v
+        /// 1 0 0 1 0 0 0 1 <- byte1
+        /// 0 1 1 1 1 1 0 0 <- byte2
+        inline fn colorCode(byte1: u8, byte2: u8, offset: u16) u16 {
+            return ((byte2 >> offset) & 0b1 +
+                (byte1 >> offset) & 0b1);
         }
     };
 }
