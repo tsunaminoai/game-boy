@@ -1,6 +1,76 @@
 const std = @import("std");
 const Register = @import("register.zig");
 
+const MemLoc = union(enum) {
+    addr8: [*]u8,
+    addr16: [*]u16,
+    imd8: u8,
+    imd16: u16,
+    reg: Register,
+
+    pub fn read(self: MemLoc) std.meta.activeTag(self) {
+        return switch (self) {
+            else => undefined,
+        };
+    }
+    pub fn write(self: MemLoc, value: u16) void {
+        _ = self;
+        _ = value;
+    }
+};
+test "LD" {
+    @memset(&mem, 0);
+    var d = MemLoc{ .addr8 = mem[16..].ptr };
+    const s = MemLoc{ .imd8 = 1 };
+    LD(&d, s);
+    std.debug.print("{any}\n", .{d});
+}
+var PC: usize = 0;
+var mem: [1024]u8 = undefined;
+fn LD(dest: *MemLoc, src: MemLoc) void {
+    const val: u16 = switch (dest.*) {
+        .addr8, .addr16 => blk: {
+            break :blk dest.addr8[0];
+        },
+        .imd8, .imd16 => blk: {
+            break :blk mem[PC + dest.imd8];
+        },
+        .reg => blk: {
+            break :blk 0;
+        },
+    };
+    src = switch (src) {
+        .addr8, .addr16 => {},
+        .imd8, .imd16 => blk: {
+            break :blk val;
+        },
+        .reg => blk: {
+            break :blk 0;
+        },
+    };
+}
+
+const OPCode = union(enum(u8)) {
+    LD: fn (dest: anytype, src: anytype) void,
+    INC: *const fn () void,
+    DEC: *const fn () void,
+    ADD: *const fn () void,
+    SUB: *const fn () void,
+    NOP: *const fn () void,
+    JUMP: *const fn () void,
+    POP: *const fn () void,
+    RET: *const fn () void,
+    STOP: *const fn () void,
+    CALL: *const fn () void,
+    PUSH: *const fn () void,
+    DI: *const fn () void,
+    HALT: *const fn () void,
+    ROT: *const fn () void,
+    AND: *const fn () void,
+    SHIFT: *const fn () void,
+    EI: *const fn () void,
+};
+
 /// Categories for opcodes
 /// Inspired by https://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html
 pub const Category = enum {
