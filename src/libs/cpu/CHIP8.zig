@@ -5,7 +5,7 @@ var mem: [0xFFF]u8 = [_]u8{0} ** 0xFFF;
 const ETI = mem[0x600..0xFFF];
 const Prog = mem[0x200..0xFFF];
 
-var Registers: [16]u8 = undefined;
+var Registers: [16]u8 = [_]u8{0} ** 16;
 
 const W = 64;
 const H = 32;
@@ -32,8 +32,8 @@ var rand: std.Random = undefined;
 var Stack: [16]u16 = [_]u16{0} ** 16;
 const Reg = enum(u8) { v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, vA, vB, vC, vD, vE, vF };
 const Timer = u8;
-var SoundTimer: Timer = undefined;
-var Delaytimer: Timer = undefined;
+var SoundTimer: Timer = 0;
+var Delaytimer: Timer = 0;
 
 const Nib = u4;
 const Op = enum(Nib) {
