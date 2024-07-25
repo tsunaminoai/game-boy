@@ -1,7 +1,7 @@
 # Zig specific
 zig-cache/
 zig-out/
-
+.zig-cache/
 *.bin
 
 # C boilerplate
