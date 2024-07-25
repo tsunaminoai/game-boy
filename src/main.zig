@@ -1,6 +1,7 @@
 const std = @import("std");
 const rl = @import("raylib");
 const Config = @import("types.zig").Config;
+const LibName = "libgb.dylib";
 
 var alloc: std.mem.Allocator = std.heap.c_allocator;
 
@@ -93,7 +94,7 @@ fn loadGameDll() !void {
     if (game_dynamic_lib != null) return error.AlreadyLoaded;
 
     // TODO: platform specific
-    var dyn_lib = std.DynLib.open("zig-out/lib/libgame.dylib") catch {
+    var dyn_lib = std.DynLib.open("zig-out/lib/" ++ LibName) catch {
         return error.OpenFail;
     };
 
