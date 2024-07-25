@@ -3,7 +3,7 @@ const rl = @import("raylib");
 const GameStatePtr = *anyopaque;
 const Config = @import("types.zig").Config;
 const Renderer = @import("renderer.zig");
-const GB = @import("root").GB;
+const GB = @import("gb");
 const Audio = @import("audio.zig");
 
 const Game = @This();
@@ -20,7 +20,7 @@ fps_capped: bool = false,
 debug: bool = false,
 config: Config = Config{},
 renderer: *Renderer = undefined,
-chip: GB,
+chip: GB.LR35902.CPU(),
 clock_hz: f32 = 0,
 audio: Audio,
 
@@ -40,7 +40,7 @@ pub fn init(config: Config) GameStatePtr {
 
     var self = alloc.create(Game) catch @panic("Failed to allocate Game");
     self.reload(Config{});
-    self.chip = GB{};
+    self.chip = GB.LR35902.CPU().init(alloc) catch @panic("Failed to initialize chip");
     self.init_renderer() catch @panic("Failed to initialize renderer");
     self.audio = Audio.init(self);
     var thread = std.Thread.spawn(
@@ -114,12 +114,13 @@ pub fn reload(self: *Game, config: Config) void {
             .x = config.width,
             .y = config.height,
         },
-        .chip = GB{},
+        .chip = undefined,
         .target_frame_rate = 1.0 / (config.target_fps),
         .alloc = std.heap.c_allocator,
         .audio = Audio.init(self),
         .config = config,
     };
+    self.chip = GB.LR35902.CPU().init(self.alloc) catch @panic("Failed to initialize chip");
     self.init_renderer() catch @panic("Failed to initialize renderer");
 }
 

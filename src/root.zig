@@ -1,8 +1,10 @@
-pub const Game = @import("game.zig");
-pub const GB = @import("libs/game-boy.zig");
-pub const Renderer = @import("renderer.zig");
-pub const GUI = @import("gui.zig");
-pub const Audio = @import("audio.zig");
+const Game = @import("game.zig");
+const rl = @import("raylib");
+
+const GB = @import("gb");
+const Renderer = @import("renderer.zig");
+const GUI = @import("gui.zig");
+const Audio = @import("audio.zig");
 
 const std = @import("std");
 const GameStatePtr = *anyopaque;

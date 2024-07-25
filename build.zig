@@ -44,14 +44,21 @@ pub fn build(b: *std.Build) !void {
         run_option.dependOn(&run_step.step);
         return;
     }
+    const game_boy_module = b.addModule(ChipLibName, .{
+        .root_source_file = b.path("src/libs/game-boy.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
 
-    const game_boy = b.addSharedLibrary(.{
+    const chip_lib = b.addSharedLibrary(.{
         .name = ChipLibName,
         .root_source_file = b.path("src/libs/game-boy.zig"),
         .target = target,
         .optimize = optimize,
         .version = ChipVersion,
     });
+    chip_lib.root_module.addImport("game-boy", game_boy_module);
+    b.installArtifact(chip_lib);
 
     const game_lib = b.addSharedLibrary(.{
         .name = LibName,
@@ -60,7 +67,8 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
         .version = LibVersion,
     });
-    game_lib.linkLibrary(game_boy);
+    game_lib.linkLibrary(chip_lib);
+    game_lib.root_module.addImport(ChipLibName, game_boy_module);
     game_lib.linkLibrary(raylib_artifact);
     game_lib.root_module.addImport("raylib", raylib);
     game_lib.root_module.addImport("raygui", raygui);
@@ -87,7 +95,7 @@ pub fn build(b: *std.Build) !void {
     // build docs
     const docs = b.step("docs", "Build documentation");
     const install_docs = b.addInstallDirectory(.{
-        .source_dir = game_boy.getEmittedDocs(),
+        .source_dir = chip_lib.getEmittedDocs(),
         .install_dir = .prefix,
         .install_subdir = "docs",
     });

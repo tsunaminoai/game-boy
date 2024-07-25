@@ -1,7 +1,7 @@
 const std = @import("std");
 const rl = @import("raylib");
 const Config = @import("types.zig").Config;
-const LibName = "libgb.dylib";
+const LibName = "libgame-boy.dylib";
 
 var alloc: std.mem.Allocator = std.heap.c_allocator;
 
@@ -11,7 +11,7 @@ var config = Config{
     .target_fps = 60,
 };
 pub fn main() !void {
-    loadGameDll() catch @panic("Failed to load game.dll");
+    loadGameDll() catch @panic("Failed to load " ++ LibName);
 
     rl.initWindow(
         @intFromFloat(config.width),
@@ -104,7 +104,7 @@ fn loadGameDll() !void {
     gameTick = dyn_lib.lookup(@TypeOf(gameTick), "gameTick") orelse return error.LookupFail;
     gameDraw = dyn_lib.lookup(@TypeOf(gameDraw), "gameDraw") orelse return error.LookupFail;
     gameDeinit = dyn_lib.lookup(@TypeOf(gameDraw), "gameDeinit") orelse return error.LookupFail;
-    std.debug.print("Loaded game.dll\n", .{});
+    std.debug.print("Loaded {s}\n", .{LibName});
 }
 
 /// Unloads the game dynamic library.
