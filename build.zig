@@ -1,92 +1,116 @@
 const std = @import("std");
+const rlz = @import("raylib-zig");
 
-// Although this function looks imperative, note that its job is to
-// declaratively construct a build graph that will be executed by an external
-// runner.
-pub fn build(b: *std.Build) void {
-    // Standard target options allows the person running `zig build` to choose
-    // what target to build for. Here we do not override the defaults, which
-    // means any target is allowed, and the default is native. Other options
-    // for restricting supported target set are available.
+pub const LibName = "game-boy";
+pub const LibVersion = .{ .major = 0, .minor = 1, .patch = 0 };
+pub const ChipLibName = "gb";
+pub const ChipVersion = .{ .major = 0, .minor = 1, .patch = 0 };
+pub const ExeName = "game-boy";
+
+pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
-
-    // Standard optimization options allow the person running `zig build` to select
-    // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall. Here we do not
-    // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
+    const game_only = b.option(
+        bool,
+        "game_only",
+        "only build the game shared library",
+    ) orelse false;
 
-    const gb_mod = b.addModule("gameboy", .{
-        .source_file = .{ .path = "src/libs/cpu/cpu.zig" },
+    const raylib_dep = b.dependency("raylib-zig", .{
+        .target = target,
+        .optimize = optimize,
+        .shared = true,
     });
-    const gb_lib = b.addStaticLibrary(.{
-        .name = "gb_lib",
-        .root_source_file = .{ .path = "src/libs/cpu/cpu.zig" },
+
+    const raylib = raylib_dep.module("raylib");
+    const raygui = raylib_dep.module("raygui");
+    const raylib_artifact = raylib_dep.artifact("raylib");
+
+    //web exports are completely separate
+    if (target.query.os_tag == .emscripten) {
+        const exe_lib = rlz.emcc.compileForEmscripten(b, ExeName, "src/main.zig", target, optimize);
+        //FIXME: There is a bug in emsc for 0.13.0 https://github.com/Not-Nik/raylib-zig/issues/108 upstream
+
+        exe_lib.linkLibrary(raylib_artifact);
+        exe_lib.root_module.addImport("raylib", raylib);
+
+        // Note that raylib itself is not actually added to the exe_lib output file, so it also needs to be linked with emscripten.
+        const link_step = try rlz.emcc.linkWithEmscripten(b, &[_]*std.Build.Step.Compile{ exe_lib, raylib_artifact });
+
+        b.getInstallStep().dependOn(&link_step.step);
+        const run_step = try rlz.emcc.emscriptenRunStep(b);
+        run_step.step.dependOn(&link_step.step);
+        const run_option = b.step("run", "Run " ++ ExeName);
+        run_option.dependOn(&run_step.step);
+        return;
+    }
+    const game_boy_module = b.addModule(ChipLibName, .{
+        .root_source_file = b.path("src/libs/game-boy.zig"),
         .target = target,
         .optimize = optimize,
     });
 
-    const exe = b.addExecutable(.{
-        .name = "game-boy",
-        // In this case the main source file is merely a path, however, in more
-        // complicated build scripts, this could be a generated file.
-        .root_source_file = .{ .path = "src/main.zig" },
+    const chip_lib = b.addSharedLibrary(.{
+        .name = ChipLibName,
+        .root_source_file = b.path("src/libs/game-boy.zig"),
         .target = target,
         .optimize = optimize,
+        .version = ChipVersion,
     });
-    exe.linkLibrary(gb_lib);
-    exe.addModule("gameboy", gb_mod);
+    chip_lib.root_module.addImport("game-boy", game_boy_module);
+    b.installArtifact(chip_lib);
 
-    // This declares intent for the executable to be installed into the
-    // standard location when the user invokes the "install" step (the default
-    // step when running `zig build`).
-    b.installArtifact(exe);
+    const game_lib = b.addSharedLibrary(.{
+        .name = LibName,
+        .root_source_file = b.path("src/root.zig"),
+        .target = target,
+        .optimize = optimize,
+        .version = LibVersion,
+    });
+    game_lib.linkLibrary(chip_lib);
+    game_lib.root_module.addImport(ChipLibName, game_boy_module);
+    game_lib.linkLibrary(raylib_artifact);
+    game_lib.root_module.addImport("raylib", raylib);
+    game_lib.root_module.addImport("raygui", raygui);
+    b.installArtifact(game_lib);
 
-    // This *creates* a Run step in the build graph, to be executed when another
-    // step is evaluated that depends on it. The next line below will establish
-    // such a dependency.
-    const run_cmd = b.addRunArtifact(exe);
+    if (!game_only) {
+        const exe = b.addExecutable(.{
+            .name = ExeName,
+            .root_source_file = b.path("src/main.zig"),
+            .optimize = optimize,
+            .target = target,
+        });
 
-    // By making the run step depend on the install step, it will be run from the
-    // installation directory rather than directly from within the cache directory.
-    // This is not necessary, however, if the application depends on other installed
-    // files, this ensures they will be present and in the expected location.
-    run_cmd.step.dependOn(b.getInstallStep());
+        exe.linkLibrary(raylib_artifact);
+        exe.root_module.addImport("raylib", raylib);
 
-    // This allows the user to pass arguments to the application in the build
-    // command itself, like this: `zig build run -- arg1 arg2 etc`
-    if (b.args) |args| {
-        run_cmd.addArgs(args);
+        const run_cmd = b.addRunArtifact(exe);
+        const run_step = b.step("run", "Run " ++ ExeName);
+        run_step.dependOn(&run_cmd.step);
+
+        b.installArtifact(exe);
     }
 
-    // This creates a build step. It will be visible in the `zig build --help` menu,
-    // and can be selected like this: `zig build run`
-    // This will evaluate the `run` step rather than the default, which is "install".
-    const run_step = b.step("run", "Run the app");
-    run_step.dependOn(&run_cmd.step);
+    // build docs
+    const docs = b.step("docs", "Build documentation");
+    const install_docs = b.addInstallDirectory(.{
+        .source_dir = chip_lib.getEmittedDocs(),
+        .install_dir = .prefix,
+        .install_subdir = "docs",
+    });
+    docs.dependOn(&install_docs.step);
 
-    // Creates a step for unit testing. This only builds the test executable
-    // but does not run it.
-    const unit_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/libs/cpu/LR35902.zig" },
+    //Chip tests
+    const chip_test = b.addTest(.{
+        .name = "chip",
+        .root_source_file = b.path("src/libs/game-boy.zig"),
         .target = target,
         .optimize = optimize,
     });
+    const chip_test_step = b.step("test_chip", "Run chip tests");
+    chip_test_step.dependOn(&chip_test.step);
 
-    const run_unit_tests = b.addRunArtifact(unit_tests);
-
-    // Similar to creating the run step earlier, this exposes a `test` step to
-    // the `zig build --help` menu, providing a way for the user to request
-    // running the unit tests.
-    const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&run_unit_tests.step);
-
-    const docs = b.addInstallDirectory(.{
-        .source_dir = gb_lib.getEmittedDocs(),
-        .install_dir = .prefix,
-        .install_subdir = "docs/",
-    });
-    b.getInstallStep().dependOn(&docs.step);
-
-    const docs_step = b.step("docs", "Build and install the documentation");
-    docs_step.dependOn(&docs.step);
+    const tests_step = b.step("test", "Run all tests");
+    tests_step.dependOn(chip_test_step);
 }
