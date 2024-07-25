@@ -39,7 +39,7 @@ pub fn StaticMemory() type {
                 return MemoryError.SizeDoesntMatchAdddressRange;
             }
 
-            var data = try alloc.alloc(u8, size);
+            const data = try alloc.alloc(u8, size);
             @memset(data, 0);
 
             return Self{

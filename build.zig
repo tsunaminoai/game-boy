@@ -1,6 +1,12 @@
 const std = @import("std");
 const rlz = @import("raylib-zig");
 
+pub const LibName = "game-boy";
+pub const LibVersion = .{ .major = 0, .minor = 1, .patch = 0 };
+pub const ChipLibName = "gb";
+pub const ChipVersion = .{ .major = 0, .minor = 1, .patch = 0 };
+pub const ExeName = "game-boy";
+
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
@@ -19,9 +25,6 @@ pub fn build(b: *std.Build) !void {
     const raylib = raylib_dep.module("raylib");
     const raygui = raylib_dep.module("raygui");
     const raylib_artifact = raylib_dep.artifact("raylib");
-
-    const LibName = "gb";
-    const ExeName = "game-boy";
 
     //web exports are completely separate
     if (target.query.os_tag == .emscripten) {
@@ -42,13 +45,22 @@ pub fn build(b: *std.Build) !void {
         return;
     }
 
+    const game_boy = b.addSharedLibrary(.{
+        .name = ChipLibName,
+        .root_source_file = b.path("src/libs/game-boy.zig"),
+        .target = target,
+        .optimize = optimize,
+        .version = ChipVersion,
+    });
+
     const game_lib = b.addSharedLibrary(.{
         .name = LibName,
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
-        .version = .{ .major = 1, .minor = 0, .patch = 0 },
+        .version = LibVersion,
     });
+    game_lib.linkLibrary(game_boy);
     game_lib.linkLibrary(raylib_artifact);
     game_lib.root_module.addImport("raylib", raylib);
     game_lib.root_module.addImport("raygui", raygui);
@@ -75,9 +87,22 @@ pub fn build(b: *std.Build) !void {
     // build docs
     const docs = b.step("docs", "Build documentation");
     const install_docs = b.addInstallDirectory(.{
-        .source_dir = game_lib.getEmittedDocs(),
+        .source_dir = game_boy.getEmittedDocs(),
         .install_dir = .prefix,
         .install_subdir = "docs",
     });
     docs.dependOn(&install_docs.step);
+
+    //Chip tests
+    const chip_test = b.addTest(.{
+        .name = "chip",
+        .root_source_file = b.path("src/libs/game-boy.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const chip_test_step = b.step("test_chip", "Run chip tests");
+    chip_test_step.dependOn(&chip_test.step);
+
+    const tests_step = b.step("test", "Run all tests");
+    tests_step.dependOn(chip_test_step);
 }

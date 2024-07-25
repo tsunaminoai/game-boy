@@ -25,7 +25,7 @@ pub fn Bus() type {
             var d = std.StringHashMap(MMU.StaticMemory()).init(ally);
 
             // var rom0 = try MMU.StaticMemory().init("rom0", 0x4000, 0, 0x3fff, ally);
-            var rom0 = try MMU.StaticMemory().init("rom0", 0xffff, 0, 0xffff, ally);
+            const rom0 = try MMU.StaticMemory().init("rom0", 0xffff, 0, 0xffff, ally);
             try d.put("rom0", rom0);
 
             return Self{
