@@ -24,6 +24,7 @@ pub fn init(a: std.mem.Allocator, game: *Game) !*GUI {
         .state = game,
         .rom_list = try romList(alloc),
     };
+    gui.guiLoadStyle("style_bluish.rgs");
     return self;
 }
 
@@ -33,8 +34,22 @@ pub fn deinit(self: *GUI) void {
 }
 
 /// Draws the GUI for the game.
-pub fn drawGui(self: *GUI) !void {
-    _ = self; // autofix
+pub fn render(self: *GUI) void {
+    _ = gui.guiPanel(
+        rl.Rectangle.init(5, 5, 1190, 100),
+        "Controls",
+    );
+
+    if (0 != gui.guiLabelButton(
+        rl.Rectangle.init(10, 35, 50, 20),
+        if (self.state.audio.muted) "#122#Mute" else "#122#Unmute",
+    )) {
+        self.state.audio.mute();
+    }
+    self.filePicker(
+        rl.Rectangle.init(10, 60, 200, 20),
+        "Load ROM",
+    );
 }
 
 /// Displays a file picker GUI element.
@@ -56,6 +71,7 @@ fn filePicker(
     const files: [:0]u8 = self.getFileList(alloc) catch unreachable;
     defer alloc.free(files);
     const current = self.picker_active;
+    _ = current; // autofix
 
     // try writer.flush();
     if (0 != gui.guiDropdownBox(
@@ -65,11 +81,11 @@ fn filePicker(
         self.picker_edit,
     )) self.picker_edit = !self.picker_edit;
 
-    if (current != self.picker_active) {
-        self.state.chip.loadRomFromPath(self.rom_list[@intCast(self.picker_active)]) catch |e| {
-            std.log.err("Could not load ROM '{s}': {}s\n", .{ self.rom_list[@intCast(self.picker_active)], e });
-        };
-    }
+    // if (current != self.picker_active) {
+    //     self.state.chip.loadRomFromPath(self.rom_list[@intCast(self.picker_active)]) catch |e| {
+    //         std.log.err("Could not load ROM '{s}': {}s\n", .{ self.rom_list[@intCast(self.picker_active)], e });
+    //     };
+    // }
 }
 
 /// Retrieves a list of file names from the GUI's `rom_list` and returns it as a null-terminated string.
@@ -126,7 +142,7 @@ fn romList(a: std.mem.Allocator) ![][]u8 {
         if (entry.kind != .file) {
             continue;
         }
-        if (std.mem.endsWith(u8, entry.name, ".ch8")) {
+        if (std.mem.endsWith(u8, entry.name, ".bin")) {
             std.debug.print("{s}\n", .{entry.name});
             const name = entry.name;
             const n = try alloc.dupe(u8, name);

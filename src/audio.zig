@@ -2,6 +2,8 @@ const std = @import("std");
 const rl = @import("raylib");
 const Game = @import("game.zig");
 
+const gbAudio = @import("game-boy").Audio;
+
 const Audio = @This();
 
 /// The size of the Fast Fourier Transform (FFT) used for audio processing.

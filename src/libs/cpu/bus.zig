@@ -1,4 +1,5 @@
 const std = @import("std");
+const audio = @import("audio.zig");
 
 const MMU = @import("mmu.zig");
 
@@ -14,6 +15,7 @@ pub fn Bus() type {
         arena: std.heap.ArenaAllocator,
         alloc: std.mem.Allocator,
         devices: std.StringHashMap(MMU.StaticMemory()),
+        memory: [0x10000]u8 = undefined,
 
         const Self = @This();
 
@@ -58,6 +60,7 @@ pub fn Bus() type {
                 // 0xFF00...0xFF4B => error.Unimplemented, // io ports
                 // 0xFF4C...0xFF7F => error.InvalidAddress, // empty and unusable
                 // 0xFF80...0xFFFE => error.Unimplemented, // internal ram
+                0xFF10...0xFF26 => audio.init(self.memory[0xFF10..0xFF26]), // sound
                 // 0xFFFF => error.Unimplemented, // IRQ enable
                 // else => error.InvalidAddress,
             };
