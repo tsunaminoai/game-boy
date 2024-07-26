@@ -44,5 +44,5 @@ pub fn deinit(self: *Renderer) void {
 
 /// Renders the game state.
 pub fn render(self: *Renderer) void {
-    _ = self; // autofix
+    self.gui.render();
 }
