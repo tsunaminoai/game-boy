@@ -29,7 +29,7 @@ pub fn init(comptime Name: []const u8, comptime Start: u16, comptime End: u16) !
 }
 
 /// Read up to 2 bytes from memory.
-fn read(ptr: *anyopaque, address: u16, len: usize) ReadError!u16 {
+fn read(ptr: *anyopaque, address: u16, len: u2) ReadError!u16 {
     var self: *ROM = @ptrCast(@alignCast(ptr));
     if (len == 1) {
         return self.mem[address];

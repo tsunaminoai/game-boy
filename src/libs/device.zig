@@ -3,6 +3,7 @@ const testing = std.testing;
 
 pub const ROM = @import("devices/rom.zig");
 pub const RAM = @import("devices/ram.zig");
+pub const Bus = @import("devices/bus.zig");
 
 pub const ReadError = error{
     InvalidAddress,
@@ -23,8 +24,8 @@ data: []u8,
 
 const Self = @This();
 const Vtable = struct {
-    read: ?*const fn (*anyopaque, u16, usize) ReadError!u16 = null,
-    write: ?*const fn (*anyopaque, u16, usize, u16) WriteError!void = null,
+    read: ?*const fn (*anyopaque, u16, u2) ReadError!u16 = null,
+    write: ?*const fn (*anyopaque, u16, u2, u16) WriteError!void = null,
 };
 
 /// Initialize a new device.

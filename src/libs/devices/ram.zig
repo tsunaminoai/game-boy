@@ -28,7 +28,7 @@ pub fn init(comptime Name: []const u8, comptime Start: u16, comptime End: u16) !
 }
 
 /// Read up to 2 bytes from memory.
-fn read(ptr: *anyopaque, address: u16, len: usize) ReadError!u16 {
+fn read(ptr: *anyopaque, address: u16, len: u2) ReadError!u16 {
     var self: *RAM = @ptrCast(@alignCast(ptr));
     if (len == 1) {
         return self.mem[address];
@@ -42,7 +42,7 @@ fn read(ptr: *anyopaque, address: u16, len: usize) ReadError!u16 {
 }
 
 /// Write up to 2 bytes to memory.
-fn write(ptr: *anyopaque, address: u16, len: usize, value: u16) WriteError!void {
+fn write(ptr: *anyopaque, address: u16, len: u2, value: u16) WriteError!void {
     var self: *RAM = @ptrCast(@alignCast(ptr));
     if (len == 1) {
         self.mem[address] = @truncate(value);
