@@ -55,6 +55,9 @@ pub fn render(self: *GUI) void {
         rl.Rectangle.init(10, 60, 200, 20),
         "Load ROM",
     );
+    self.joyPad(
+        rl.Rectangle.init(210, 35, 100, 100),
+    );
 
     self.audio(
         rl.Rectangle.init(self.state.screen.x + 10, 110, 380, 600),
@@ -234,3 +237,51 @@ pub fn audio(
     }
 }
 var dummy: f32 = 0;
+
+pub fn joyPad(self: *GUI, bound: rl.Rectangle) void {
+    _ = self; // autofix
+    const x = 10 + bound.x;
+    const y = bound.y;
+    const w = bound.width / 4;
+    const h = bound.height / 4;
+    const spacing = 10;
+    const color = rl.Color.init(255, 255, 255, 255);
+    _ = color; // autofix
+
+    const dpad = enum {
+        Up,
+        Down,
+        Left,
+        Right,
+    };
+    inline for (std.meta.fields(dpad), 0..) |b, i| {
+        _ = i; // autofix
+
+        const bx = x + (w + spacing) * @as(i32, b.value);
+        const by = y;
+
+        _ = gui.guiButton(
+            rl.Rectangle.init(bx, by, w, h),
+            b.name,
+        );
+    }
+
+    const buttons = enum {
+        A,
+        B,
+        Start,
+        Select,
+    };
+
+    inline for (std.meta.fields(buttons), 0..) |b, i| {
+        _ = i; // autofix
+
+        const bx = x + (w + spacing) * @as(i32, b.value);
+        const by = y + h + spacing;
+
+        _ = gui.guiButton(
+            rl.Rectangle.init(bx, by, w, h),
+            b.name,
+        );
+    }
+}
