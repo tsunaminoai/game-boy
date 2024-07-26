@@ -30,6 +30,8 @@ frame_duration: i64,
 /// Represents a pointer to the game state.
 game_state: *Game,
 
+muted: bool = true,
+
 var osc = Oscillator.Sine(); // default oscillator
 
 /// Initializes the audio system.
@@ -103,13 +105,22 @@ pub fn streamHandle(self: *Audio, stream: rl.AudioStream) void {
 
         for (0..StreamBufferSize) |i| {
             osc.update(440.0);
-            self.signal[i] += std.math.clamp(osc.waveShape(osc), -0xFF, 0xFF) * osc.amp;
+            self.signal[i] += std.math.clamp(
+                osc.waveShape(osc),
+                -0xFF,
+                0xFF,
+            ) * if (self.muted) 0 else osc.amp;
         }
 
         rl.updateAudioStream(stream, &self.signal, self.signal.len);
         self.frame_duration = std.time.microTimestamp() - start_time;
     }
 }
+
+pub fn mute(self: *Audio) void {
+    self.muted = !self.muted;
+}
+
 const Oscillator = struct {
     phase: f32 = 0,
     delta: f32 = 0,
