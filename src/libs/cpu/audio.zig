@@ -236,7 +236,7 @@ const ChannelConf = union(enum) {
     }
 };
 
-const SoundRegisters = struct {
+pub const SoundRegisters = struct {
     // square 1
     nr10: Sweep,
     nr11: Duty,
