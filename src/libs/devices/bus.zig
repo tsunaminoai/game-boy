@@ -9,24 +9,20 @@ const WriteError = Device.WriteError;
 const Bus = @This();
 
 dev: Device,
-devices: [10]?Device,
+devices: [10]?*Device,
 next_dev: usize = 0,
-mem: []u8,
-
-var memory: [0xFFFF]u8 = undefined;
 
 pub fn init(comptime size: usize) !Bus {
     var self = Bus{
         .dev = undefined,
-        .devices = [_]?Device{null} ** 10,
-        .mem = &memory,
+        .devices = [_]?*Device{null} ** 10,
     };
     self.dev = try Device.init(
         "Bus",
         0,
         size,
         .{ .read = read, .write = write },
-        &memory,
+        null,
     );
 
     return self;
@@ -34,11 +30,10 @@ pub fn init(comptime size: usize) !Bus {
 
 pub fn read(ptr: *anyopaque, address: u16, len: u2) ReadError!u16 {
     const self: *Bus = @ptrCast(@alignCast(ptr));
-    for (self.devices) |dMaybe| {
-        if (dMaybe) |d| {
-            if (address >= d.startAddress and address < d.endAddress) {
-                return d.read(address, len);
-            }
+    for (0..self.next_dev) |i| {
+        var d = self.devices[i] orelse return ReadError.InvalidAddress;
+        if (address >= d.startAddress and address < d.endAddress) {
+            return d.read(address, len);
         }
     }
     return ReadError.InvalidAddress;
@@ -55,16 +50,28 @@ pub fn write(ptr: *anyopaque, address: u16, len: u2, value: u16) WriteError!void
     }
     return WriteError.InvalidAddress;
 }
-
-pub fn addDev(self: *Bus, dev: Device) void {
-    for (self.devices) |d| {
-        if (d == null)
-            d = dev;
+pub fn reset(ptr: *anyopaque) void {
+    const self: *Bus = @ptrCast(@alignCast(ptr));
+    for (self.devices) |dMaybe| {
+        if (dMaybe) |d| d.reset();
     }
 }
 
+pub fn addDev(self: *Bus, dev: *Device) void {
+    self.devices[self.next_dev] = dev;
+    self.next_dev += 1;
+}
+
 pub fn device(self: *Bus) Device {
+    self.dev.ptr = self;
     return self.dev;
+}
+
+pub fn format(self: Bus, _: []const u8, _: anytype, writer: anytype) !void {
+    for (self.devices) |dMaybe| {
+        if (dMaybe) |d|
+            try writer.print("{}\n", .{d});
+    }
 }
 
 const testing = std.testing;
@@ -72,18 +79,20 @@ const expectEqual = testing.expectEqual;
 const expectError = testing.expectError;
 test "Device" {
     var Rom0 = try Device.ROM.init("Rom0", 0x0, 0xFF);
-    const rom_dev = Rom0.device();
+    var rom_dev = Rom0.device();
     var Bus1 = try Bus.init(
         0xFFFF,
     );
-    try Bus1.addDev(rom_dev);
-    var dev = Bus1.device();
-    std.debug.print("{any}\n", .{dev});
+    Bus1.addDev(&rom_dev);
+    var bus_dev = Bus1.device();
+    bus_dev.reset();
+
+    std.debug.print("{}\n", .{Bus1});
 
     // Test ROM device
-    var res = try dev.read(0x0000, 1);
+    var res = try bus_dev.read(0x0000, 1);
     try expectEqual(0, res);
-    res = try dev.read(0x0000, 2);
+    res = try bus_dev.read(0x0000, 2);
     try expectEqual(0, res);
-    try expectError(WriteError.Unimplemented, dev.write(0x0000, 1, 0x1));
+    try expectError(WriteError.Unimplemented, bus_dev.write(0x0000, 1, 0x1));
 }

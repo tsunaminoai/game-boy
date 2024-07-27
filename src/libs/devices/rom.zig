@@ -48,6 +48,10 @@ pub fn device(self: *ROM) Device {
     return self.dev;
 }
 
+pub fn reset(ptr: *anyopaque) void {
+    var self: *ROM = @ptrCast(@alignCast(ptr));
+    @memset(&self.mem, 0);
+}
 const testing = std.testing;
 
 const expectEqual = testing.expectEqual;

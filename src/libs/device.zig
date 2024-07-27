@@ -20,12 +20,13 @@ vtable: Vtable = .{},
 startAddress: u16,
 endAddress: u16,
 name: []const u8,
-data: []u8,
+data: ?[]u8,
 
 const Self = @This();
 const Vtable = struct {
     read: ?*const fn (*anyopaque, u16, u2) ReadError!u16 = null,
     write: ?*const fn (*anyopaque, u16, u2, u16) WriteError!void = null,
+    reset: ?*const fn (*anyopaque) void = null,
 };
 
 /// Initialize a new device.
@@ -36,12 +37,17 @@ pub fn init(
     startAddress: u16,
     endAddress: u16,
     vtable: ?Vtable,
-    data: []u8,
+    data: ?[]u8,
 ) !Self {
-    if (startAddress >= endAddress or data.len < endAddress - startAddress)
+    if (startAddress >= endAddress)
         return error.InvalidAddress;
 
-    @memset(data, 0);
+    if (data) |d| {
+        if (d.len < endAddress - startAddress)
+            return error.InvalidAddress;
+
+        @memset(d, 0);
+    }
     var self = Self{
         .ptr = null,
         .name = name,
@@ -82,6 +88,27 @@ pub fn write(self: *Device, address: u16, len: u2, value: u16) WriteError!void {
         .{ address, self.name, value },
     );
     return self.vtable.write.?(self.ptr.?, address - self.startAddress, len, value);
+}
+
+pub fn reset(self: *Device) void {
+    if (self.vtable.reset) |rst| {
+        rst(self.ptr.?);
+    }
+}
+
+pub fn format(
+    self: Device,
+    fmt: []const u8,
+    options: anytype,
+    writer: anytype,
+) !void {
+    _ = options;
+    _ = fmt;
+    try writer.print("[{X:0>4}-{X:0>4}] {s}", .{
+        self.startAddress,
+        self.endAddress,
+        self.name,
+    });
 }
 
 test {
