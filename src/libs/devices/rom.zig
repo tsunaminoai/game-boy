@@ -20,7 +20,7 @@ pub fn init(comptime Name: []const u8, comptime Start: u16, comptime End: u16) !
             Name,
             Start,
             End,
-            .{ .read = read },
+            .{ .read = read, .reset = reset },
             &data,
         ),
         .mem = &data,
