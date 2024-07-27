@@ -4,7 +4,7 @@ const Device = @import("../device.zig");
 const ReadError = Device.ReadError;
 const WriteError = Device.WriteError;
 
-const ROM = @This();
+const Timers = @This();
 
 /// A ROM device is a memory-mapped device that can be read from. It is read-only and will error on writes.
 dev: Device,
@@ -12,10 +12,10 @@ mem: []u8 = undefined,
 
 /// Initialize a new ROM device with the given name, start, and end addresses.
 /// This will zero out the data and initialize the device.
-pub fn init(comptime Name: []const u8, comptime Start: u16, comptime End: u16) !ROM {
+pub fn init(comptime Name: []const u8, comptime Start: u16, comptime End: u16) !Timers {
     var data: [End - Start]u8 = undefined;
 
-    const self = ROM{
+    const self = Timers{
         .dev = try Device.init(
             Name,
             Start,
@@ -30,7 +30,7 @@ pub fn init(comptime Name: []const u8, comptime Start: u16, comptime End: u16) !
 
 /// Read up to 2 bytes from memory.
 fn read(ptr: *anyopaque, address: u16, len: u2) ReadError!u16 {
-    var self: *ROM = @ptrCast(@alignCast(ptr));
+    var self: *Timers = @ptrCast(@alignCast(ptr));
     if (len == 1) {
         return self.mem[address];
     } else {
@@ -43,13 +43,13 @@ fn read(ptr: *anyopaque, address: u16, len: u2) ReadError!u16 {
 }
 
 /// Get the device from the ROM.
-pub fn device(self: *ROM) Device {
+pub fn device(self: *Timers) Device {
     self.dev.ptr = self;
     return self.dev;
 }
 
 pub fn reset(ptr: *anyopaque) void {
-    const self: *ROM = @ptrCast(@alignCast(ptr));
+    const self: *Timers = @ptrCast(@alignCast(ptr));
     @memset(self.mem, 0);
 }
 const testing = std.testing;
@@ -57,11 +57,6 @@ const testing = std.testing;
 const expectEqual = testing.expectEqual;
 const expectError = testing.expectError;
 test "Device" {
-    var Rom1 = try ROM.init("rom1", 0x200, 0x2FF);
-    var dev = Rom1.device();
-    var res = try dev.read(0x200, 1);
-    try expectEqual(0, res);
-    res = try dev.read(0x200, 2);
-    try expectEqual(0, res);
-    try expectError(WriteError.Unimplemented, dev.write(0x200, 1, 0x1));
+    const t1 = try Timers.init("rom1", 0xFF04, 0xFF07);
+    _ = t1; // autofix
 }

@@ -56,6 +56,11 @@ fn write(ptr: *anyopaque, address: u16, len: u2, value: u16) WriteError!void {
     }
 }
 
+pub fn reset(ptr: *anyopaque) void {
+    const self: *RAM = @ptrCast(@alignCast(ptr));
+    @memset(self.mem, 0);
+}
+
 /// Get the device from the ROM.
 pub fn device(self: *RAM) Device {
     self.dev.ptr = self;
