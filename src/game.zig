@@ -41,8 +41,7 @@ pub fn init(config: Config) GameStatePtr {
     var self = alloc.create(Game) catch @panic("Failed to allocate Game");
     self.reload(Config{});
 
-    var bus = GB.Device.Bus.init(0xFFFF) catch @panic("Failed to initialize bus");
-    const chip = GB.Device.CPU.init(&bus) catch @panic("Failed to initialize CPU");
+    const chip = GB.init(0xFFFF) catch @panic("Failed to initialize CPU");
 
     self.chip = chip;
     self.init_renderer() catch @panic("Failed to initialize renderer");
