@@ -20,7 +20,7 @@ fps_capped: bool = false,
 debug: bool = false,
 config: Config = Config{},
 renderer: *Renderer = undefined,
-chip: GB.LR35902.CPU(),
+chip: GB.Device.CPU,
 clock_hz: f32 = 0,
 audio: Audio,
 
@@ -40,7 +40,11 @@ pub fn init(config: Config) GameStatePtr {
 
     var self = alloc.create(Game) catch @panic("Failed to allocate Game");
     self.reload(Config{});
-    self.chip = GB.LR35902.CPU().init(alloc) catch @panic("Failed to initialize chip");
+
+    var bus = GB.Device.Bus.init(0xFFFF) catch @panic("Failed to initialize bus");
+    const chip = GB.Device.CPU.init(&bus) catch @panic("Failed to initialize CPU");
+
+    self.chip = chip;
     self.init_renderer() catch @panic("Failed to initialize renderer");
     self.audio = Audio.init(self);
     var thread = std.Thread.spawn(
@@ -120,7 +124,8 @@ pub fn reload(self: *Game, config: Config) void {
         .audio = Audio.init(self),
         .config = config,
     };
-    self.chip = GB.LR35902.CPU().init(self.alloc) catch @panic("Failed to initialize chip");
+    var bus = GB.Device.Bus.init(0xFFFF) catch @panic("Failed to initialize bus");
+    self.chip = GB.Device.CPU.init(&bus) catch @panic("Failed to initialize CPU");
     self.init_renderer() catch @panic("Failed to initialize renderer");
 }
 

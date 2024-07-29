@@ -1,5 +1,6 @@
 const std = @import("std");
-const Register = @import("register.zig");
+const LR35902 = @import("../devices/LR35902.zig");
+const Register = LR35902.RegisterID;
 
 const MemLoc = union(enum) {
     addr8: [*]u8,
@@ -18,37 +19,37 @@ const MemLoc = union(enum) {
         _ = value;
     }
 };
-test "LD" {
-    @memset(&mem, 0);
-    var d = MemLoc{ .addr8 = mem[16..].ptr };
-    const s = MemLoc{ .imd8 = 1 };
-    LD(&d, s);
-    std.debug.print("{any}\n", .{d});
-}
-var PC: usize = 0;
-var mem: [1024]u8 = undefined;
-fn LD(dest: *MemLoc, src: MemLoc) void {
-    const val: u16 = switch (dest.*) {
-        .addr8, .addr16 => blk: {
-            break :blk dest.addr8[0];
-        },
-        .imd8, .imd16 => blk: {
-            break :blk mem[PC + dest.imd8];
-        },
-        .reg => blk: {
-            break :blk 0;
-        },
-    };
-    src = switch (src) {
-        .addr8, .addr16 => {},
-        .imd8, .imd16 => blk: {
-            break :blk val;
-        },
-        .reg => blk: {
-            break :blk 0;
-        },
-    };
-}
+// test "LD" {
+//     @memset(&mem, 0);
+//     var d = MemLoc{ .addr8 = mem[16..].ptr };
+//     const s = MemLoc{ .imd8 = 1 };
+//     LD(&d, s);
+//     std.debug.print("{any}\n", .{d});
+// }
+// var PC: usize = 0;
+// var mem: [1024]u8 = undefined;
+// fn LD(dest: *MemLoc, src: MemLoc) void {
+//     const val: u16 = switch (dest.*) {
+//         .addr8, .addr16 => blk: {
+//             break :blk dest.addr8[0];
+//         },
+//         .imd8, .imd16 => blk: {
+//             break :blk mem[PC + dest.imd8];
+//         },
+//         .reg => blk: {
+//             break :blk 0;
+//         },
+//     };
+//     src = switch (src) {
+//         .addr8, .addr16 => {},
+//         .imd8, .imd16 => blk: {
+//             break :blk val;
+//         },
+//         .reg => blk: {
+//             break :blk .reg;
+//         },
+//     };
+// }
 
 const OPCode = union(enum(u8)) {
     LD: fn (dest: anytype, src: anytype) void,
@@ -115,8 +116,8 @@ pub const Instruction = struct {
     addressing: AddressingMethod,
     category: Category,
     name: []const u8,
-    source: ?Register.RegisterID = null,
-    destination: ?Register.RegisterID = null,
+    source: ?Register = null,
+    destination: ?Register = null,
 
     pub fn format(self: Instruction, fmt: []const u8, options: anytype, writer: anytype) !void {
         _ = fmt;

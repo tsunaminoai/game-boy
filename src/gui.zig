@@ -2,6 +2,7 @@ const std = @import("std");
 const Game = @import("game.zig");
 const rl = @import("raylib");
 const gui = @import("raygui");
+const APU = @import("gb").Device.Audio;
 
 const GUI = @This();
 
@@ -11,6 +12,9 @@ picker_active: i32 = 0,
 rom_list: [][]u8 = undefined,
 
 var alloc: std.mem.Allocator = undefined;
+var mem = [_]u8{0} ** 0x30;
+var registers = APU.SoundRegisters.init(&mem);
+var gba: APU = undefined;
 
 /// Initializes a new GUI instance.
 ///
@@ -20,6 +24,7 @@ var alloc: std.mem.Allocator = undefined;
 pub fn init(a: std.mem.Allocator, game: *Game) !*GUI {
     alloc = a;
     const self = try alloc.create(GUI);
+    gba = APU.init(registers);
     self.* = .{
         .state = game,
         .rom_list = try romList(alloc),
@@ -49,6 +54,14 @@ pub fn render(self: *GUI) void {
     self.filePicker(
         rl.Rectangle.init(10, 60, 200, 20),
         "Load ROM",
+    );
+    self.joyPad(
+        rl.Rectangle.init(210, 35, 100, 100),
+    );
+
+    self.audio(
+        rl.Rectangle.init(self.state.screen.x + 10, 110, 380, 600),
+        "Audio",
     );
 }
 
@@ -150,4 +163,125 @@ fn romList(a: std.mem.Allocator) ![][]u8 {
         }
     }
     return list.toOwnedSlice();
+}
+
+/// audio GUI
+pub fn audio(
+    self: *GUI,
+    bounds: rl.Rectangle,
+    label: [:0]const u8,
+) void {
+    _ = gui.guiPanel(
+        bounds,
+        label,
+    );
+
+    if (0 != gui.guiLabelButton(
+        .{ .x = bounds.x + 10, .y = bounds.y + 35, .width = 50, .height = 20 },
+        if (self.state.audio.muted) "#122#Mute" else "#122#Unmute",
+    )) {
+        self.state.audio.mute();
+    }
+
+    for (gba.channels, 0..) |ch, i| {
+        const icon = switch (ch.conf) {
+            .square => gui.guiIconText(122, "S"),
+            .wave => gui.guiIconText(122, "W"),
+            .noise => gui.guiIconText(122, "N"),
+        };
+        _ = icon; // autofix
+
+        const y = bounds.y + 60 + 20 * @as(f32, @floatFromInt(i));
+        _ = gui.guiLabel(
+            .{ .x = bounds.x + 10, .y = y, .width = 50, .height = 20 },
+            "Channel",
+        );
+        _ = gui.guiLabel(
+            .{ .x = bounds.x + 60, .y = y, .width = 50, .height = 20 },
+            rl.textFormat("#122#%d", .{i}),
+        );
+        _ = gui.guiLabel(
+            .{ .x = bounds.x + 110, .y = y, .width = 50, .height = 20 },
+            "Volume",
+        );
+        _ = gui.guiSliderBar(
+            .{ .x = bounds.x + 160, .y = y, .width = 200, .height = 20 },
+            "",
+            "",
+            &dummy,
+            0,
+            1,
+        );
+    }
+
+    for (gba.channels, 0..) |ch, i| {
+        _ = ch; // autofix
+        const y = bounds.y + 60 * 2 + 10 + 110 * @as(f32, @floatFromInt(i));
+        // osciloscope
+        _ = gui.guiPanel(
+            .{ .x = bounds.x + 10, .y = y + 20, .width = 350, .height = 100 },
+            rl.textFormat("Channel %d", .{i}),
+        );
+
+        // draw osciloscope
+        var wave_data: [350]f32 = undefined;
+        @memset(&wave_data, 0);
+        for (wave_data, 0..) |d, j| {
+            _ = d; // autofix
+            rl.drawPixel(
+                @as(i32, @intFromFloat(bounds.x)) + 10 + @as(i32, @intCast(j)),
+                10 + @as(i32, @intFromFloat(y)) + 20 + 50 - @as(i32, @intFromFloat(wave_data[i] * 50)),
+                rl.Color.init(255, 255, 255, 255),
+            );
+        }
+    }
+}
+var dummy: f32 = 0;
+
+pub fn joyPad(self: *GUI, bound: rl.Rectangle) void {
+    _ = self; // autofix
+    const x = 10 + bound.x;
+    const y = bound.y;
+    const w = bound.width / 4;
+    const h = bound.height / 4;
+    const spacing = 10;
+    const color = rl.Color.init(255, 255, 255, 255);
+    _ = color; // autofix
+
+    const dpad = enum {
+        Up,
+        Down,
+        Left,
+        Right,
+    };
+    inline for (std.meta.fields(dpad), 0..) |b, i| {
+        _ = i; // autofix
+
+        const bx = x + (w + spacing) * @as(i32, b.value);
+        const by = y;
+
+        _ = gui.guiButton(
+            rl.Rectangle.init(bx, by, w, h),
+            b.name,
+        );
+    }
+
+    const buttons = enum {
+        A,
+        B,
+        Start,
+        Select,
+    };
+
+    inline for (std.meta.fields(buttons), 0..) |b, i| {
+        _ = i; // autofix
+
+        const bx = x + (w + spacing) * @as(i32, b.value);
+        const by = y + h + spacing;
+
+        _ = gui.guiButton(
+            rl.Rectangle.init(bx, by, w, h),
+            b.name,
+        );
+    }
 }

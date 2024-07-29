@@ -1,0 +1,20 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.10.7/.schema/devbox.schema.json",
+  "packages": [
+    "zig@0.13.0",
+    "github:nixos/nixpkgs/24.05#zls"
+  ],
+  "shell": {
+    "init_hook": [
+      "echo 'Welcome to devbox!' > /dev/null"
+    ],
+    "scripts": {
+      "test": [
+        "zig build test"
+      ],
+      "clean": [
+        "rm -rf .zig-cache zig-out"
+      ]
+    }
+  }
+}
