@@ -8,7 +8,7 @@ const Audio = @import("audio.zig");
 
 const Game = @This();
 
-const ROM = "test_opcode.ch8";
+const ROM = "dmg_rom.bin";
 
 screen: rl.Vector2,
 scale: rl.Vector2 = rl.Vector2.init(1, 1),
@@ -20,7 +20,7 @@ fps_capped: bool = false,
 debug: bool = false,
 config: Config = Config{},
 renderer: *Renderer = undefined,
-chip: GB.Device.CPU,
+chip: GB,
 clock_hz: f32 = 0,
 audio: Audio,
 
@@ -41,17 +41,18 @@ pub fn init(config: Config) GameStatePtr {
     var self = alloc.create(Game) catch @panic("Failed to allocate Game");
     self.reload(Config{});
 
-    const chip = GB.init(0xFFFF) catch @panic("Failed to initialize CPU");
-
+    var chip = GB.init(0xFFFF) catch @panic("Failed to initialize CPU");
+    chip.rom0.loadFromFile(ROM) catch @panic("Failed to load ROM");
     self.chip = chip;
+    std.debug.print("Initialized Chip: {s}\n", .{chip.bus});
     self.init_renderer() catch @panic("Failed to initialize renderer");
-    self.audio = Audio.init(self);
-    var thread = std.Thread.spawn(
-        .{},
-        Audio.processor,
-        .{&self.audio},
-    ) catch @panic("Failed to spawn audio processor");
-    thread.detach();
+    // self.audio = Audio.init(self);
+    // var thread = std.Thread.spawn(
+    //     .{},
+    //     Audio.processor,
+    //     .{&self.audio},
+    // ) catch @panic("Failed to spawn audio processor");
+    // thread.detach();
 
     // self.startStop();
     return self;
@@ -123,8 +124,8 @@ pub fn reload(self: *Game, config: Config) void {
         .audio = Audio.init(self),
         .config = config,
     };
-    var bus = GB.Device.Bus.init(0xFFFF) catch @panic("Failed to initialize bus");
-    self.chip = GB.Device.CPU.init(&bus) catch @panic("Failed to initialize CPU");
+    self.chip = GB.init(0xFFFF) catch @panic("Failed to initialize CPU");
+    self.chip.rom0.loadFromFile(ROM) catch @panic("Failed to load ROM");
     self.init_renderer() catch @panic("Failed to initialize renderer");
 }
 

@@ -2,18 +2,23 @@ const std = @import("std");
 
 pub const Device = @import("device.zig");
 
-pub fn init(comptime size: usize) !Device.CPU {
+const GB = @This();
+
+bus: Device.Bus,
+rom0: Device.ROM,
+cpu: Device.CPU,
+
+pub fn init(comptime size: usize) !GB {
     var bus = try Device.Bus.init(size);
-    var Rom0 = try Device.ROM.init("Rom0", 0x0000, 0x4000);
-    var rom_dev = Rom0.device();
-    bus.addDev(&rom_dev);
+    const rom0 = try Device.ROM.init("Rom0", 0x0, 0x7FFF);
     const cpu = try Device.CPU.init(&bus);
-    return cpu;
+    return GB{
+        .bus = bus,
+        .rom0 = rom0,
+        .cpu = cpu,
+    };
 }
 
 test {
     std.testing.refAllDeclsRecursive(@This());
-
-    const cpu = try init(0xFFFF);
-    _ = cpu; // autofix
 }

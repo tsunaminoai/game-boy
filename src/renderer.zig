@@ -45,4 +45,19 @@ pub fn deinit(self: *Renderer) void {
 /// Renders the game state.
 pub fn render(self: *Renderer) void {
     self.gui.render();
+
+    const block_size = 5;
+    const rom_dev = self.state.chip.rom0.device();
+    for (rom_dev.data.?, 0..) |color, i| {
+        const x = 100 + block_size * i % 256;
+        const y = 150 + block_size * i / 256;
+        rl.drawRectangle(
+            @intCast(x),
+            @intCast(y),
+            block_size,
+            block_size,
+            rl.Color.init(color, color, color, 255),
+        );
+    }
+    rl.drawText(rl.textFormat("%d bytes", .{rom_dev.data.?.len}), 10, 10, 20, rl.Color.red);
 }

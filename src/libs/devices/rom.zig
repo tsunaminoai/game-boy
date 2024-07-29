@@ -13,7 +13,7 @@ mem: []u8 = undefined,
 /// Initialize a new ROM device with the given name, start, and end addresses.
 /// This will zero out the data and initialize the device.
 pub fn init(comptime Name: []const u8, comptime Start: u16, comptime End: u16) !ROM {
-    var data: [End - Start]u8 = undefined;
+    var data: [End - Start + 1]u8 = undefined;
 
     const self = ROM{
         .dev = try Device.init(
@@ -52,6 +52,24 @@ pub fn reset(ptr: *anyopaque) void {
     const self: *ROM = @ptrCast(@alignCast(ptr));
     @memset(self.mem, 0);
 }
+
+pub fn loadFromFile(self: *ROM, path: []const u8) !void {
+    const file = try std.fs.cwd().openFile(path, .{});
+    defer file.close();
+
+    var stream = file.seekableStream();
+    const end = try stream.getEndPos();
+    if (end > self.mem.len) {
+        std.log.err(
+            "ROM file '{s}' too large. Found {} bytes but can hold {}.\n",
+            .{ path, end, self.mem.len },
+        );
+        return error.LoadFileData;
+    }
+    try stream.seekTo(0);
+    _ = try file.readAll(self.mem);
+}
+
 const testing = std.testing;
 
 const expectEqual = testing.expectEqual;
@@ -64,4 +82,6 @@ test "Device" {
     res = try dev.read(0x200, 2);
     try expectEqual(0, res);
     try expectError(WriteError.Unimplemented, dev.write(0x200, 1, 0x1));
+
+    try Rom1.loadFromFile("rom.bin");
 }
