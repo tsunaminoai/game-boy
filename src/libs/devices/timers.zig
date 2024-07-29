@@ -11,6 +11,16 @@ const ClkSelect = enum(u2) {
     @"262144Hz" = 1,
     @"65536Hz" = 2,
     @"16384Hz" = 3,
+
+    pub fn toHz(self: ClkSelect) u32 {
+        const CPU_Hz = 4_194_304;
+        return switch (self) {
+            .@"4096Hz" => CPU_Hz / 4096,
+            .@"262144Hz" => CPU_Hz / 262_144,
+            .@"65536Hz" => CPU_Hz / 65_536,
+            .@"16384Hz" => CPU_Hz / 16_384,
+        };
+    }
 };
 const TimerControl = packed struct {
     _1: u6,
@@ -26,6 +36,7 @@ DIV: *u8, // Divider Register
 TIMA: *u8, // Timer Counter
 TMA: *u8, // Timer Modulo
 TAC: *TimerControl, // Timer Control
+freq: u32 = 0,
 
 /// Initialize a new ROM device with the given name, start, and end addresses.
 /// This will zero out the data and initialize the device.
@@ -45,7 +56,9 @@ pub fn init(comptime Name: []const u8, comptime Start: u16, comptime End: u16) !
         .TIMA = &data[1],
         .TMA = &data[2],
         .TAC = @ptrCast(@alignCast(&data[3])),
+        .freq = ClkSelect.@"4096Hz".toHz(),
     };
+
     return self;
 }
 
@@ -64,14 +77,18 @@ fn read(ptr: *anyopaque, address: u16, len: u2) ReadError!u16 {
 }
 
 fn write(ptr: *anyopaque, address: u16, len: u2, value: u16) WriteError!void {
-    _ = value; // autofix
     _ = len; // autofix
     const self: *Timers = @ptrCast(@alignCast(ptr));
     switch (address) {
         0xFF04 => self.DIV.* = 0,
         0xFF05 => undefined,
         0xFF06 => undefined,
-        0xFF07 => undefined,
+        0xFF07 => {
+            self.TAC.* = std.mem.bytesToValue(TimerControl, &value);
+            if (self.TAC.clk_select.toHz() != self.freq) {
+                self.freq = self.TAC.clk_select.toHz();
+            }
+        },
         else => return WriteError.InvalidAddress,
     }
 }
@@ -84,6 +101,19 @@ pub fn tick(ptr: *anyopaque) void {
     if (div[1] == 1) {
         self.TIMA.* = self.TMA.*;
         //TODO: Interrupt
+    }
+
+    if (self.TAC.enabled) {
+        self.TIMA.* -= 1;
+        if (self.TIMA.* == 0) {
+            self.freq = self.TAC.clk_select.toHz();
+            if (self.TIMA.* == 0xFF) {
+                self.TIMA.* = self.TMA.*;
+                //TODO: Interrupt
+            } else {
+                self.TIMA.* += 1;
+            }
+        }
     }
 }
 
