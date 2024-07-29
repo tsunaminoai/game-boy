@@ -4,6 +4,7 @@ const testing = std.testing;
 pub const ROM = @import("devices/rom.zig");
 pub const RAM = @import("devices/ram.zig");
 pub const Bus = @import("devices/bus.zig");
+pub const CPU = @import("devices/LR35902.zig");
 pub const Timers = @import("devices/timers.zig");
 
 pub const ReadError = error{
