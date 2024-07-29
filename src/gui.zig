@@ -2,7 +2,7 @@ const std = @import("std");
 const Game = @import("game.zig");
 const rl = @import("raylib");
 const gui = @import("raygui");
-const APU = @import("gb").Audio;
+const APU = @import("gb").Device.Audio;
 
 const GUI = @This();
 

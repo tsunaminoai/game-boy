@@ -6,6 +6,7 @@ pub const RAM = @import("devices/ram.zig");
 pub const Bus = @import("devices/bus.zig");
 pub const CPU = @import("devices/LR35902.zig");
 pub const Timers = @import("devices/timers.zig");
+pub const Audio = @import("devices/audio.zig"); //TODO: This isnt implemented yet
 
 pub const ReadError = error{
     InvalidAddress,

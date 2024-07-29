@@ -1,7 +1,7 @@
 const std = @import("std");
 const Device = @import("../device.zig");
 const Bus = Device.Bus;
-const OpCodes = @import("../cpu/opcodes.zig");
+const OpCodes = @import("opcodes.zig");
 const Instruction = OpCodes.Instruction;
 const InstructionList = OpCodes.Instructions;
 
