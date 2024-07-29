@@ -28,6 +28,7 @@ const Vtable = struct {
     read: ?*const fn (*anyopaque, u16, u2) ReadError!u16 = null,
     write: ?*const fn (*anyopaque, u16, u2, u16) WriteError!void = null,
     reset: ?*const fn (*anyopaque) void = null,
+    tick: ?*const fn (*anyopaque) void = null,
 };
 
 /// Initialize a new device.
@@ -94,6 +95,12 @@ pub fn write(self: *Device, address: u16, len: u2, value: u16) WriteError!void {
 pub fn reset(self: *Device) void {
     if (self.vtable.reset) |rst| {
         rst(self.ptr.?);
+    }
+}
+
+pub fn tick(self: *Device) void {
+    if (self.vtable.reset) |t| {
+        t(self.ptr.?);
     }
 }
 

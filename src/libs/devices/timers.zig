@@ -37,7 +37,7 @@ pub fn init(comptime Name: []const u8, comptime Start: u16, comptime End: u16) !
             Name,
             Start,
             End,
-            .{ .read = read, .write = write },
+            .{ .read = read, .write = write, .tick = tick },
             &data,
         ),
         .mem = &data,
@@ -76,7 +76,9 @@ fn write(ptr: *anyopaque, address: u16, len: u2, value: u16) WriteError!void {
     }
 }
 
-pub fn tick(self: *Timers) void {
+pub fn tick(ptr: *anyopaque) void {
+    const self: *Timers = @ptrCast(@alignCast(ptr));
+
     const div = @addWithOverflow(self.DIV.*, 1);
     self.DIV.* += div[0];
     if (div[1] == 1) {
@@ -103,7 +105,7 @@ test "Timers" {
     var t1 = try Timers.init("rom1", 0xFF04, 0xFF07);
     var dev = t1.device();
     // var res: u16 = undefined;
-    for (0..255) |_| t1.tick();
+    for (0..255) |_| dev.tick();
     try expectEqual(t1.DIV.*, 0xFF);
 
     try dev.write(0xFF04, 1, 0x1);

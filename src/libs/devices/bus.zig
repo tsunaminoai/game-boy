@@ -21,7 +21,7 @@ pub fn init(comptime size: usize) !Bus {
         "Bus",
         0,
         size,
-        .{ .read = read, .write = write },
+        .{ .read = read, .write = write, .tick = tick },
         null,
     );
 
@@ -54,6 +54,13 @@ pub fn reset(ptr: *anyopaque) void {
     const self: *Bus = @ptrCast(@alignCast(ptr));
     for (self.devices) |dMaybe| {
         if (dMaybe) |d| d.reset();
+    }
+}
+
+pub fn tick(ptr: *anyopaque) void {
+    const self: *Bus = @ptrCast(@alignCast(ptr));
+    for (self.devices) |dMaybe| {
+        if (dMaybe) |d| d.tick();
     }
 }
 
