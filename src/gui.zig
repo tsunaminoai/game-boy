@@ -3,6 +3,7 @@ const Game = @import("game.zig");
 const rl = @import("raylib");
 const gui = @import("raygui");
 const APU = @import("gb").Device.Audio;
+const CPU = @import("gb").Device.CPU;
 
 const GUI = @This();
 
@@ -58,11 +59,37 @@ pub fn render(self: *GUI) void {
     self.joyPad(
         rl.Rectangle.init(210, 35, 100, 100),
     );
+    self.regsiters(
+        rl.Rectangle.init(400, 35, 200, 100),
+        "Registers",
+    );
 
     // self.audio(
     //     rl.Rectangle.init(self.state.screen.x + 10, 110, 380, 600),
     //     "Audio",
     // );
+}
+
+fn regsiters(self: *GUI, bounds: rl.Rectangle, label: []const u8) void {
+    _ = label; // autofix
+    const reg_size = rl.Vector2.init(60, 12);
+    inline for (std.meta.fields(CPU.RegisterID), 0..) |r, i| {
+        const l = rl.Rectangle.init(
+            bounds.x + reg_size.x * @as(f32, @floatFromInt(i % 3)),
+            bounds.y + reg_size.y * @as(f32, @floatFromInt(i / 3)),
+            reg_size.x,
+            reg_size.y,
+        );
+        const reg_label = if (r.value < @intFromEnum(CPU.RegisterID.A)) r.name[0..2] else " " ++ r.name[0..2];
+        const reg_fmt = if ((r.value < @intFromEnum(CPU.RegisterID.A))) "%s: %04X" else "%s: %02X";
+        _ = gui.guiLabel(l, rl.textFormat(
+            reg_fmt,
+            .{
+                reg_label,
+                self.state.chip.cpu.readReg(@enumFromInt(r.value)),
+            },
+        ));
+    }
 }
 
 /// Displays a file picker GUI element.

@@ -111,7 +111,7 @@ fn writeReg(self: *CPU, reg: RegisterID, value: u16) void {
         .L => self.regs[7] = @truncate(value),
     }
 }
-fn readReg(self: *CPU, reg: RegisterID) u16 {
+pub fn readReg(self: *CPU, reg: RegisterID) u16 {
     return switch (reg) {
         .AF, .BC, .DE, .HL, .PC, .SP => std.mem.readInt(
             u16,
