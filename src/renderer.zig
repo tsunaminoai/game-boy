@@ -44,6 +44,9 @@ pub fn deinit(self: *Renderer) void {
 
 /// Renders the game state.
 pub fn render(self: *Renderer) void {
+    rl.beginDrawing();
+
+    rl.clearBackground(rl.Color.black);
     self.gui.render();
 
     const block_size = 5;
@@ -60,4 +63,6 @@ pub fn render(self: *Renderer) void {
         );
     }
     rl.drawText(rl.textFormat("%d bytes", .{rom_dev.data.?.len}), 10, 10, 20, rl.Color.red);
+
+    rl.endDrawing();
 }

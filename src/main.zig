@@ -32,14 +32,7 @@ pub fn main() !void {
             try reload(state);
         }
         gameTick(state);
-
-        rl.beginDrawing();
-
-        rl.clearBackground(rl.Color.black);
-
         gameDraw(state);
-
-        rl.endDrawing();
     }
 }
 

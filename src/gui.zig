@@ -59,10 +59,10 @@ pub fn render(self: *GUI) void {
         rl.Rectangle.init(210, 35, 100, 100),
     );
 
-    self.audio(
-        rl.Rectangle.init(self.state.screen.x + 10, 110, 380, 600),
-        "Audio",
-    );
+    // self.audio(
+    //     rl.Rectangle.init(self.state.screen.x + 10, 110, 380, 600),
+    //     "Audio",
+    // );
 }
 
 /// Displays a file picker GUI element.
