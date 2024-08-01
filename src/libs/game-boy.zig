@@ -8,8 +8,8 @@ bus: Device.Bus,
 rom0: Device.ROM,
 cpu: Device.CPU,
 
-pub fn init(comptime size: usize) !GB {
-    var bus = try Device.Bus.init(size);
+pub fn init() !GB {
+    var bus = try Device.Bus.init(0xFFFF);
     const rom0 = try Device.ROM.init("Rom0", 0x0, 0x7FFF);
     const cpu = try Device.CPU.init(&bus);
     return GB{
