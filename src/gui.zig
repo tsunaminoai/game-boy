@@ -108,7 +108,7 @@ fn filePicker(
     label: []const u8,
 ) void {
     _ = label; // autofix
-    const files: [:0]u8 = self.getFileList(alloc) catch unreachable;
+    const files = self.getFileList(alloc) catch unreachable;
     defer alloc.free(files);
     const current = self.picker_active;
     _ = current; // autofix
@@ -116,7 +116,7 @@ fn filePicker(
     // try writer.flush();
     if (0 != gui.guiDropdownBox(
         bounds,
-        files,
+        @ptrCast(files),
         &self.picker_active,
         self.picker_edit,
     )) self.picker_edit = !self.picker_edit;
@@ -130,16 +130,16 @@ fn filePicker(
 
 /// Retrieves a list of file names from the GUI's `rom_list` and returns it as a null-terminated string.
 /// The caller is responsible for freeing the memory.
-fn getFileList(self: *GUI, allocator: std.mem.Allocator) ![:0]u8 {
+fn getFileList(self: *GUI, allocator: std.mem.Allocator) ![]u8 {
     const strInsert = "{s};";
     var string = std.ArrayList(u8).init(allocator);
-    var buf: [1024:0]u8 = undefined;
+    var buf: [1024]u8 = undefined;
+    @memset(&buf, 0);
     for (self.rom_list) |rom| {
         const name = std.fmt.bufPrint(&buf, strInsert, .{rom}) catch unreachable;
         try string.appendSlice(name);
     }
-    try string.append(0);
-    return @ptrCast(try string.toOwnedSlice());
+    return try string.toOwnedSlice();
 }
 
 /// Converts an enum value to the specified type.

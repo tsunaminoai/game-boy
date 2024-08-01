@@ -24,8 +24,9 @@ chip: GB,
 clock_hz: f32 = 0,
 audio: Audio,
 
-alloc: std.mem.Allocator,
+var alloc: std.mem.Allocator = undefined;
 var frame_start: f64 = 0;
+var gpa: std.heap.GeneralPurposeAllocator(.{}) = .{};
 
 /// Initializes the game with the given configuration and returns a pointer to the game state.
 ///
@@ -36,15 +37,13 @@ var frame_start: f64 = 0;
 /// A pointer to the game state.
 pub fn init(config: Config) GameStatePtr {
     std.debug.print("Starting game with config: {any}\n", .{config});
-    var alloc = std.heap.c_allocator;
+    alloc = gpa.allocator();
 
     var self = alloc.create(Game) catch @panic("Failed to allocate Game");
-    self.reload(Config{});
 
-    var chip = GB.init() catch @panic("Failed to initialize CPU");
-    chip.rom0.loadFromFile(ROM) catch @panic("Failed to load ROM");
-    self.chip = chip;
-    std.debug.print("Initialized Chip: {s}\n", .{chip.bus});
+    self.chip = GB.init() catch @panic("Failed to initialize CPU");
+    self.chip.rom0.loadFromFile(ROM) catch @panic("Failed to load ROM");
+    std.debug.print("Initialized Chip: {s}\n", .{self.chip.bus});
     self.init_renderer() catch @panic("Failed to initialize renderer");
     // self.audio = Audio.init(self);
     // var thread = std.Thread.spawn(
@@ -59,7 +58,7 @@ pub fn init(config: Config) GameStatePtr {
 }
 
 pub fn init_renderer(self: *Game) !void {
-    self.renderer = try Renderer.init(self.alloc, self);
+    self.renderer = try Renderer.init(alloc, self);
 }
 
 /// Handles the events for the game.
@@ -94,8 +93,10 @@ pub fn tick(self: *Game) void {
     const ticks_per_frame = self.clock_hz / denom;
     if (self.running) {
         for (@as(usize, @intFromFloat(if (ticks_per_frame > 1.0) ticks_per_frame else 1.0))) |_|
-            // self.chip.tick();
-            _ = 1;
+            self.chip.cpu.tick() catch |e| {
+                std.log.err("Error: {}\n CPU Halted\n", .{e});
+                self.running = false;
+            };
     }
 }
 
@@ -107,24 +108,25 @@ pub fn startStop(self: *Game) void {
 /// Deinitializes the game.
 pub fn deinit(self: *Game) void {
     _ = self; // autofix
+    _ = gpa.deinit();
     // self.chip.deinit();
 
 }
 
 /// Reloads the game with the given configuration.
 pub fn reload(self: *Game, config: Config) void {
+    alloc = gpa.allocator();
     self.* = Game{
         .screen = .{
             .x = config.width,
             .y = config.height,
         },
-        .chip = undefined,
+        .chip = GB.init() catch @panic("Failed to initialize CPU"),
         .target_frame_rate = 1.0 / (config.target_fps),
-        .alloc = std.heap.c_allocator,
+
         .audio = Audio.init(self),
         .config = config,
     };
-    self.chip = GB.init() catch @panic("Failed to initialize CPU");
     self.chip.rom0.loadFromFile(ROM) catch @panic("Failed to load ROM");
     self.init_renderer() catch @panic("Failed to initialize renderer");
 }
