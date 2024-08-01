@@ -9,15 +9,14 @@ const Renderer = @This();
 /// The screen buffer used for rendering.
 screen_buffer: []rl.Color = undefined,
 
-/// The allocator used for memory allocation.
-alloc: std.mem.Allocator = undefined,
-
 /// A pointer to the game state.
 state: *Game,
 
 /// A pointer to the GUI.
 gui: *GUI = undefined,
 
+/// The allocator used for memory allocation.
+var alloc: std.mem.Allocator = undefined;
 /// Initializes a new Renderer instance.
 ///
 /// This function takes an allocator and a pointer to a Game struct as parameters.
@@ -26,11 +25,11 @@ gui: *GUI = undefined,
 ///
 /// This function can return an error if memory allocation fails.
 pub fn init(allocator: std.mem.Allocator, state: *Game) !*Renderer {
+    alloc = allocator;
     const self = try allocator.create(Renderer);
-    errdefer allocator.destroy(self);
+    errdefer self.deinit();
     self.* =
         Renderer{
-        .alloc = allocator,
         .state = state,
         .gui = try GUI.init(allocator, state),
     };
@@ -38,8 +37,8 @@ pub fn init(allocator: std.mem.Allocator, state: *Game) !*Renderer {
     return self;
 }
 pub fn deinit(self: *Renderer) void {
-    _ = self; // autofix
-
+    self.gui.deinit();
+    alloc.destroy(self);
 }
 
 /// Renders the game state.

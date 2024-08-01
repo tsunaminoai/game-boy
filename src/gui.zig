@@ -10,7 +10,7 @@ const GUI = @This();
 state: *Game = undefined,
 picker_edit: bool = false,
 picker_active: i32 = 0,
-rom_list: [][]u8 = undefined,
+rom_list: ?[][]u8 = null,
 
 var alloc: std.mem.Allocator = undefined;
 var mem = [_]u8{0} ** 0x30;
@@ -25,6 +25,7 @@ var gba: APU = undefined;
 pub fn init(a: std.mem.Allocator, game: *Game) !*GUI {
     alloc = a;
     const self = try alloc.create(GUI);
+    errdefer self.deinit();
     gba = APU.init(registers);
     self.* = .{
         .state = game,
@@ -35,7 +36,7 @@ pub fn init(a: std.mem.Allocator, game: *Game) !*GUI {
 }
 
 pub fn deinit(self: *GUI) void {
-    alloc.free(self.rom_list);
+    if (self.rom_list) |list| alloc.free(list);
     alloc.destroy(self);
 }
 
@@ -64,6 +65,16 @@ pub fn render(self: *GUI) void {
         "Registers",
     );
 
+    if (0 != gui.guiLabelButton(
+        rl.Rectangle.init(600, 35, 35, 12),
+        if (self.state.running) "#132#Stop" else "#131#Start",
+    ))
+        self.state.startStop();
+
+    self.flags(
+        rl.Rectangle.init(600, 80, 100, 12),
+        "Flags",
+    );
     // self.audio(
     //     rl.Rectangle.init(self.state.screen.x + 10, 110, 380, 600),
     //     "Audio",
@@ -92,6 +103,23 @@ fn regsiters(self: *GUI, bounds: rl.Rectangle, label: []const u8) void {
     }
 }
 
+fn flags(self: *GUI, bounds: rl.Rectangle, label: []const u8) void {
+    _ = label; // autofix
+    const flag_size = rl.Vector2.init(60, 12);
+
+    inline for (std.meta.fields(CPU.Flags), 0..) |f, i| {
+        const icon = if (@field(self.state.chip.cpu.flags, f.name)) "#212#" else "#213#";
+        const fb = rl.Rectangle.init(
+            bounds.x + flag_size.x * @as(f32, @floatFromInt(i)),
+            bounds.y,
+            flag_size.x,
+            flag_size.y,
+        );
+
+        _ = gui.guiLabel(fb, icon ++ f.name);
+    }
+}
+
 /// Displays a file picker GUI element.
 ///
 /// This function takes a GUI object, bounds for the file picker, and a label for the file picker.
@@ -108,18 +136,35 @@ fn filePicker(
     label: []const u8,
 ) void {
     _ = label; // autofix
-    const files = self.getFileList(alloc) catch unreachable;
+    const files = self.getFileList(alloc) catch |e| blk: {
+        std.log.err("Error getting list\n{}\n", .{e});
+        break :blk "Error getting list";
+    };
     defer alloc.free(files);
+    errdefer alloc.free(files);
     const current = self.picker_active;
     _ = current; // autofix
 
     // try writer.flush();
     if (0 != gui.guiDropdownBox(
-        bounds,
+        rl.Rectangle.init(bounds.x, bounds.y, bounds.width - 15, bounds.height),
         @ptrCast(files),
         &self.picker_active,
         self.picker_edit,
     )) self.picker_edit = !self.picker_edit;
+
+    if (0 != gui.guiLabelButton(
+        rl.Rectangle.init(bounds.x + bounds.width - 15, bounds.y, 15, bounds.height),
+        "#211#",
+    )) {
+        if (self.rom_list) |list| {
+            alloc.free(list);
+            self.rom_list = romList(alloc) catch |e| blk: {
+                std.log.err("Could not load rom list.\n{}\n", .{e});
+                break :blk null;
+            };
+        }
+    }
 
     // if (current != self.picker_active) {
     //     self.state.chip.loadRomFromPath(self.rom_list[@intCast(self.picker_active)]) catch |e| {
@@ -135,9 +180,11 @@ fn getFileList(self: *GUI, allocator: std.mem.Allocator) ![]u8 {
     var string = std.ArrayList(u8).init(allocator);
     var buf: [1024]u8 = undefined;
     @memset(&buf, 0);
-    for (self.rom_list) |rom| {
-        const name = std.fmt.bufPrint(&buf, strInsert, .{rom}) catch unreachable;
-        try string.appendSlice(name);
+    if (self.rom_list) |list| {
+        for (list) |rom| {
+            const name = try std.fmt.bufPrint(&buf, strInsert, .{rom});
+            try string.appendSlice(name);
+        }
     }
     return try string.toOwnedSlice();
 }
@@ -178,6 +225,7 @@ fn romList(a: std.mem.Allocator) ![][]u8 {
     );
     var it = cwd.iterate();
     var list = std.ArrayList([]u8).init(a);
+    errdefer list.deinit();
     while (try it.next()) |entry| {
         if (entry.kind != .file) {
             continue;

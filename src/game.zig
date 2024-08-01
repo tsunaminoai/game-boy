@@ -107,8 +107,12 @@ pub fn startStop(self: *Game) void {
 
 /// Deinitializes the game.
 pub fn deinit(self: *Game) void {
-    _ = self; // autofix
-    _ = gpa.deinit();
+    self.renderer.deinit();
+
+    if (gpa.deinit() == .leak) {
+        std.log.warn("GPA Leaked!", .{});
+    }
+    alloc.destroy(self);
     // self.chip.deinit();
 
 }
