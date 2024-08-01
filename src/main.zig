@@ -84,6 +84,8 @@ fn reload(state: GameStatePtr) !void {
 /// - `error.OpenFail`: If the game dynamic library fails to open.
 /// - `error.LookupFail`: If any of the required game functions cannot be found.
 fn loadGameDll() !void {
+    std.log.debug("Loading game DLL\n", .{});
+
     if (game_dynamic_lib != null) return error.AlreadyLoaded;
 
     // TODO: platform specific
@@ -108,8 +110,12 @@ fn loadGameDll() !void {
 ///
 /// Returns an error if the game dynamic library is already unloaded.
 fn unloadGameDll() !void {
+    std.log.debug("Unloading DLL\n", .{});
+
     if (game_dynamic_lib) |*dyn_lib| {
+        std.log.debug("Calling Deinit on DLL\n", .{});
         gameDeinit(dyn_lib);
+        std.log.debug("Closing DLL\n", .{});
         dyn_lib.close();
         game_dynamic_lib = null;
     } else {

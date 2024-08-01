@@ -18,6 +18,7 @@ export fn gameInit(config: Config) GameStatePtr {
 
 /// Dyn lib function to reload the game state.
 export fn gameReload(ptr: GameStatePtr) void {
+    std.log.debug("DLL Reload called.\n", .{});
     var state: *Game = @ptrCast(@alignCast(ptr));
     state.reload(state.config);
     state.startStop();
@@ -39,6 +40,7 @@ export fn gameDraw(ptr: GameStatePtr) void {
 
 /// Dyn lib function to deinit the game state.
 export fn gameDeinit(ptr: GameStatePtr) void {
+    std.log.debug("DLL deinit called. Shutting down.\n", .{});
     var state: *Game = @ptrCast(@alignCast(ptr));
     state.deinit();
 }

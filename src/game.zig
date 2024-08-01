@@ -107,19 +107,24 @@ pub fn startStop(self: *Game) void {
 
 /// Deinitializes the game.
 pub fn deinit(self: *Game) void {
-    self.renderer.deinit();
+    _ = self; // autofix
+    std.log.debug("Game deinit\n", .{});
 
+    // self.renderer.deinit();
+
+    // alloc.destroy(self);
     if (gpa.deinit() == .leak) {
         std.log.warn("GPA Leaked!", .{});
     }
-    alloc.destroy(self);
     // self.chip.deinit();
 
 }
 
 /// Reloads the game with the given configuration.
 pub fn reload(self: *Game, config: Config) void {
+    std.log.debug("Reloading Game Lib with config: {any}\n", .{config});
     alloc = gpa.allocator();
+
     self.* = Game{
         .screen = .{
             .x = config.width,
@@ -133,6 +138,7 @@ pub fn reload(self: *Game, config: Config) void {
     };
     self.chip.rom0.loadFromFile(ROM) catch @panic("Failed to load ROM");
     self.init_renderer() catch @panic("Failed to initialize renderer");
+    std.log.debug("Completed reload\n", .{});
 }
 
 /// Starts the frame.
