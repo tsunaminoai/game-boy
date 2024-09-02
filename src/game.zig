@@ -35,16 +35,16 @@ var frame_start: f64 = 0;
 /// # Returns
 /// A pointer to the game state.
 pub fn init(config: Config) GameStatePtr {
-    std.debug.print("Starting game with config: {any}\n", .{config});
+    std.log.debug("Starting game with config: {any}\n", .{config});
     var alloc = std.heap.c_allocator;
 
     var self = alloc.create(Game) catch @panic("Failed to allocate Game");
     self.reload(Config{});
 
-    var chip = GB.init(0xFFFF) catch @panic("Failed to initialize CPU");
-    chip.rom0.loadFromFile(ROM) catch @panic("Failed to load ROM");
-    self.chip = chip;
-    std.debug.print("Initialized Chip: {s}\n", .{chip.bus});
+    self.chip = GB.init(0xFFFF) catch @panic("Failed to initialize CPU");
+    self.chip.rom0.loadFromFile(ROM) catch @panic("Failed to load ROM");
+
+    std.log.debug("Initialized Chip: {}\n", .{self.chip});
     self.init_renderer() catch @panic("Failed to initialize renderer");
     // self.audio = Audio.init(self);
     // var thread = std.Thread.spawn(

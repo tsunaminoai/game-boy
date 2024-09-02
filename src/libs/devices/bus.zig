@@ -127,7 +127,7 @@ pub fn irqHandler(self: *Bus) void {
 pub fn format(self: Bus, _: []const u8, _: anytype, writer: anytype) !void {
     for (self.devices) |dMaybe| {
         if (dMaybe) |d|
-            try writer.print("{}\n", .{d});
+            try writer.print("{}\n", .{d.*});
     }
 }
 
