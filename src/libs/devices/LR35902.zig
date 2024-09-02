@@ -376,139 +376,135 @@ test "CPU: LoadAbsolute" {
     try eql(try cpu.bus.read(0x1337, 1), 0x42);
 }
 
-// test "CPU: LoadAbsolute(HL-)" {
-//     var cpu = try CPU().init(std.testing.allocator);
-//     defer cpu.deinit();
+test "CPU: LoadAbsolute(HL-)" {
+    var b = try Bus.init(0xFFFF);
+    var cpu = try CPU.init(&b);
 
-//     try cpu.registers.writeReg(.A, 0x42);
-//     try cpu.registers.writeReg(.HL, 0x1337);
-//     var inst = InstructionList[0x32];
-//     try cpu.loadAbsolute(inst);
-//     try eql(try cpu.ram.read(0x1337, 1), 0x42);
-//     try eql(try cpu.registers.readReg(.HL), 0x1336);
+    cpu.writeReg(.A, 0x42);
+    cpu.writeReg(.HL, 0x1337);
+    var inst = InstructionList[0x32];
+    try cpu.loadAbsolute(inst);
+    try eql(cpu.bus.read(0x1337, 1), 0x42);
+    try eql(cpu.readReg(.HL), 0x1336);
 
-//     try cpu.registers.writeReg(.A, 0x0);
-//     try cpu.registers.writeReg(.HL, 0x1111);
-//     try cpu.ram.write(0x1111, 1, 0x49);
-//     inst = InstructionList[0x3A];
-//     try cpu.loadAbsolute(inst);
-//     try eql(try cpu.registers.readReg(.A), 0x49);
-//     try eql(try cpu.registers.readReg(.HL), 0x1110);
-// }
+    cpu.writeReg(.A, 0x0);
+    cpu.writeReg(.HL, 0x1111);
+    try cpu.bus.write(0x1111, 1, 0x49);
+    inst = InstructionList[0x3A];
+    try cpu.loadAbsolute(inst);
+    try eql(cpu.readReg(.A), 0x49);
+    try eql(cpu.readReg(.HL), 0x1110);
+}
 
-// test "CPU: LoadRelative" {
-//     var cpu = try CPU().init(std.testing.allocator);
-//     defer cpu.deinit();
+test "CPU: LoadRelative" {
+    var b = try Bus.init(0xFFFF);
+    var cpu = try CPU.init(&b);
 
-//     try cpu.registers.writeReg(.PC, 0x0);
-//     try cpu.registers.writeReg(.SP, 0xBEEF);
-//     try cpu.ram.write(0x0, 2, 0x1337);
-//     const inst = InstructionList[0x08];
-//     try cpu.loadRelative(inst);
-//     try eql(try cpu.ram.read(0x1337, 2), 0xBEEF);
-// }
+    cpu.writeReg(.PC, 0x0);
+    cpu.writeReg(.SP, 0xBEEF);
+    try cpu.bus.write(0x0, 2, 0x1337);
+    const inst = InstructionList[0x08];
+    try cpu.loadRelative(inst);
+    try eql(try cpu.bus.read(0x1337, 2), 0xBEEF);
+}
 
-// test "CPU: Tick & Fetch" {
-//     var cpu = try CPU().init(std.testing.allocator);
-//     defer cpu.deinit();
+test "CPU: Tick & Fetch" {
+    var b = try Bus.init(0xFFFF);
+    var cpu = try CPU.init(&b);
 
-//     const ldDEA = InstructionList[0x12];
-//     const ldEd8 = InstructionList[0x1E];
+    const ldDEA = InstructionList[0x12];
+    const ldEd8 = InstructionList[0x1E];
 
-//     // set up regsiters
-//     try cpu.registers.writeReg(.DE, 0x1337);
-//     try cpu.registers.writeReg(.A, 0x42);
+    // set up regsiters
+    cpu.writeReg(.DE, 0x1337);
+    cpu.writeReg(.A, 0x42);
 
-//     // manually write the instructions to ram
-//     try cpu.ram.write(0x0, 1, 0x12); // LD (DE),A
-//     try cpu.ram.write(0x1, 2, 0x1E11); //LD E,d8
+    // manually write the instructions to ram
+    try cpu.bus.write(0x0, 1, 0x12); // LD (DE),A
+    try cpu.bus.write(0x1, 2, 0x1E11); //LD E,d8
 
-//     try cpu.tick();
+    try cpu.tick();
 
-//     try eql(try cpu.ram.read(0x1337, 1), 0x42);
-//     try eql(cpu.programCounter.*, ldDEA.length);
-//     try eql(cpu.remainingCycles, ldDEA.cycles);
-//     try eql(cpu.totalCycles, ldDEA.cycles);
-//     for (cpu.remainingCycles) |_| {
-//         try cpu.tick();
+    try eql(try cpu.bus.read(0x1337, 1), 0x42);
+    try eql(cpu.readReg(.PC), ldDEA.length);
+    try eql(cpu.remaining_cycles, ldDEA.cycles);
+    try eql(cpu.total_cycles, ldDEA.cycles);
+    for (cpu.remaining_cycles) |_| {
+        try cpu.tick();
+    }
+    try eql(cpu.total_cycles, 8);
+    try eql(cpu.remaining_cycles, 0);
+    try eql(cpu.readReg(.PC), ldDEA.length);
+
+    try cpu.tick();
+
+    // std.log.debug("{s}", .{cpu.registers});
+    // std.log.debug("{s}", .{cpu.bus});
+    try eql(cpu.readReg(.E), 0x11);
+    try eql(cpu.readReg(.PC), ldDEA.length + ldEd8.length);
+    try eql(cpu.remaining_cycles, ldEd8.cycles);
+    try eql(cpu.total_cycles, ldDEA.cycles + ldEd8.cycles);
+}
+
+test "ALU: ADD" {
+    var b = try Bus.init(0xFFFF);
+    var cpu = try CPU.init(&b);
+
+    // ADD A, A
+    cpu.writeReg(.A, 2);
+    cpu.writeReg(.L, 243);
+    var inst = InstructionList[0x85];
+    try cpu.alu(inst);
+    try eql(cpu.readReg(.A), 245);
+
+    // ADD A,(HL)
+    cpu.writeReg(.HL, 0x1337);
+    cpu.writeReg(.A, 0xFF);
+    try cpu.bus.write(0x1337, 1, 7);
+    inst = InstructionList[0x86];
+    try cpu.alu(inst);
+    try eql(cpu.readReg(.A), 6);
+    try eql(cpu.flags, Flags{ .zero = false, .carry = true, .halfCarry = true, .sub = false });
+}
+
+test "ALU: CMP" {
+    var b = try Bus.init(0xFFFF);
+    var cpu = try CPU.init(&b);
+
+    // CMP d8
+    cpu.writeReg(.A, 0x42);
+    try cpu.bus.write(0x0, 1, 0x42);
+    const inst = InstructionList[0xFE];
+    try cpu.alu(inst);
+
+    try std.testing.expectEqualDeep(cpu.flags, Flags{
+        .zero = true,
+        .carry = false,
+        .halfCarry = false,
+        .sub = true,
+    });
+}
+
+// fn MakeRegs(comptime rs: type) type {
+//     const inFields = std.meta.fields(rs);
+//     var fields: [inFields.len]std.builtin.Type.StructField = undefined;
+
+//     for (std.meta.fields(rs), 0..) |field, i| {
+//         const f: std.builtin.Type.EnumField = field;
+//         fields[i] = .{
+//             .name = f.name,
+//             .type = if (f.name[0] == 'f') *u16 else *u8,
+//             .default_value = null,
+//             .is_comptime = false,
+//             .alignment = 0,
+//         };
 //     }
-//     try eql(cpu.totalCycles, 8);
-//     try eql(cpu.remainingCycles, 0);
-//     try eql(cpu.programCounter.*, ldDEA.length);
-
-//     try cpu.tick();
-
-//     // std.log.debug("{s}", .{cpu.registers});
-//     // std.log.debug("{s}", .{cpu.ram});
-//     try eql(try cpu.registers.readReg(.E), 0x11);
-//     try eql(cpu.programCounter.*, ldDEA.length + ldEd8.length);
-//     try eql(cpu.remainingCycles, ldEd8.cycles);
-//     try eql(cpu.totalCycles, ldDEA.cycles + ldEd8.cycles);
-// }
-
-// test "ALU: ADD" {
-//     var cpu = try CPU().init(std.testing.allocator);
-//     defer cpu.deinit();
-
-//     // ADD A, A
-//     try cpu.registers.writeReg(.A, 2);
-//     try cpu.registers.writeReg(.L, 243);
-//     var inst = InstructionList[0x85];
-//     try cpu.alu(inst);
-//     try eql(try cpu.registers.readReg(.A), 245);
-
-//     // ADD A,(HL)
-//     try cpu.registers.writeReg(.HL, 0x1337);
-//     try cpu.registers.writeReg(.A, 0xFF);
-//     try cpu.ram.write(0x1337, 1, 7);
-//     inst = InstructionList[0x86];
-//     try cpu.alu(inst);
-//     try eql(try cpu.registers.readReg(.A), 6);
-//     try eql(cpu.flags, .{ .zero = false, .carry = true, .halfCarry = true, .subtraction = false });
-// }
-
-// test "ALU: CMP" {
-//     var cpu = try CPU().init(std.testing.allocator);
-//     defer cpu.deinit();
-
-//     // CMP d8
-//     try cpu.registers.writeReg(.A, 0x42);
-//     try cpu.ram.write(0x0, 1, 0x42);
-
-//     //     try cpu.ram.write(0x0, 1, 0x12); // LD (DE),A
-//     // try cpu.ram.write(0x1, 2, 0x1E11); //LD E,d8
-//     const inst = InstructionList[0xFE];
-//     try cpu.alu(inst);
-//     std.debug.print("{any}\n", .{cpu.flags});
-//     std.debug.print("{}\n", .{cpu.programCounter.*});
-//     try std.testing.expectEqualDeep(cpu.flags, .{
-//         .zero = true,
-//         .carry = false,
-//         .halfCarry = false,
-//         .subtraction = true,
+//     return @Type(.{
+//         .Struct = .{
+//             .layout = .auto,
+//             .fields = fields[0..],
+//             .decls = &[_]std.builtin.Type.Declaration{},
+//             .is_tuple = false,
+//         },
 //     });
 // }
-
-// // fn MakeRegs(comptime rs: type) type {
-// //     const inFields = std.meta.fields(rs);
-// //     var fields: [inFields.len]std.builtin.Type.StructField = undefined;
-
-// //     for (std.meta.fields(rs), 0..) |field, i| {
-// //         const f: std.builtin.Type.EnumField = field;
-// //         fields[i] = .{
-// //             .name = f.name,
-// //             .type = if (f.name[0] == 'f') *u16 else *u8,
-// //             .default_value = null,
-// //             .is_comptime = false,
-// //             .alignment = 0,
-// //         };
-// //     }
-// //     return @Type(.{
-// //         .Struct = .{
-// //             .layout = .auto,
-// //             .fields = fields[0..],
-// //             .decls = &[_]std.builtin.Type.Declaration{},
-// //             .is_tuple = false,
-// //         },
-// //     });
-// // }

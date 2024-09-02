@@ -124,7 +124,7 @@ pub fn reload(self: *Game, config: Config) void {
         .audio = Audio.init(self),
         .config = config,
     };
-    self.chip = GB.init(0xFFFF) catch @panic("Failed to initialize CPU");
+    self.chip = GB.init() catch @panic("Failed to initialize CPU");
     self.chip.rom0.loadFromFile(ROM) catch @panic("Failed to load ROM");
     self.init_renderer() catch @panic("Failed to initialize renderer");
 }
