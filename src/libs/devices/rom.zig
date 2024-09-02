@@ -13,7 +13,9 @@ mem: []u8 = undefined,
 /// Initialize a new ROM device with the given name, start, and end addresses.
 /// This will zero out the data and initialize the device.
 pub fn init(comptime Name: []const u8, comptime Start: u16, comptime End: u16) !ROM {
-    var data: [End - Start + 1]u8 = undefined;
+    const _internal = struct {
+        var data: [End - Start + 1]u8 = [_]u8{0} ** (End - Start + 1);
+    };
 
     const self = ROM{
         .dev = try Device.init(
@@ -21,9 +23,9 @@ pub fn init(comptime Name: []const u8, comptime Start: u16, comptime End: u16) !
             Start,
             End,
             .{ .read = read, .reset = reset },
-            &data,
+            &_internal.data,
         ),
-        .mem = &data,
+        .mem = &_internal.data,
     };
     return self;
 }
