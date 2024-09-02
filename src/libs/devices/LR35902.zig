@@ -92,7 +92,7 @@ pub fn loadImmediate(self: *CPU, inst: Instruction) !void {
     try self.writeReg(inst.destination.?, operand);
 }
 
-fn writeReg(self: *CPU, reg: RegisterID, value: u16) void {
+pub fn writeReg(self: *CPU, reg: RegisterID, value: u16) void {
     switch (reg) {
         .AF, .BC, .DE, .HL, .PC, .SP => {
             std.mem.writeInt(
@@ -111,7 +111,7 @@ fn writeReg(self: *CPU, reg: RegisterID, value: u16) void {
         .L => self.regs[7] = @truncate(value),
     }
 }
-fn readReg(self: *CPU, reg: RegisterID) u16 {
+pub fn readReg(self: *CPU, reg: RegisterID) u16 {
     return switch (reg) {
         .AF, .BC, .DE, .HL, .PC, .SP => std.mem.readInt(
             u16,

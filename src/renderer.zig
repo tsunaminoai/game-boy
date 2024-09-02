@@ -1,5 +1,5 @@
 const std = @import("std");
-const GB = @import("root").GB;
+const GB = @import("gb");
 const Game = @import("game.zig");
 const rl = @import("raylib");
 const GUI = @import("gui.zig");
@@ -45,19 +45,4 @@ pub fn deinit(self: *Renderer) void {
 /// Renders the game state.
 pub fn render(self: *Renderer) void {
     self.gui.render();
-
-    const block_size = 5;
-    const rom = self.state.chip.rom0;
-    for (rom.mem[0..rom.mem.len], 0..) |color, i| {
-        const x = 100 + block_size * i % 256;
-        const y = 150 + block_size * i / 256;
-        rl.drawRectangle(
-            @intCast(x),
-            @intCast(y),
-            block_size,
-            block_size,
-            rl.Color.init(color, color, color, 255),
-        );
-    }
-    rl.drawText(rl.textFormat("%d bytes", .{rom.mem.len}), 10, 10, 20, rl.Color.red);
 }

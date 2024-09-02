@@ -46,15 +46,15 @@ pub fn init(config: Config) GameStatePtr {
 
     std.log.debug("Initialized Chip: {}\n", .{self.chip});
     self.init_renderer() catch @panic("Failed to initialize renderer");
-    // self.audio = Audio.init(self);
-    // var thread = std.Thread.spawn(
-    //     .{},
-    //     Audio.processor,
-    //     .{&self.audio},
-    // ) catch @panic("Failed to spawn audio processor");
-    // thread.detach();
+    self.audio = Audio.init(self);
+    var thread = std.Thread.spawn(
+        .{},
+        Audio.processor,
+        .{&self.audio},
+    ) catch @panic("Failed to spawn audio processor");
+    thread.detach();
 
-    // self.startStop();
+    self.startStop();
     return self;
 }
 

@@ -63,6 +63,8 @@ pub fn render(self: *GUI) void {
         rl.Rectangle.init(self.state.screen.x + 10, 110, 380, 600),
         "Audio",
     );
+
+    self.drawMemory(rl.Rectangle.init(100, 150, 300, 300));
 }
 
 /// Displays a file picker GUI element.
@@ -84,7 +86,6 @@ fn filePicker(
     const files: [:0]u8 = self.getFileList(alloc) catch unreachable;
     defer alloc.free(files);
     const current = self.picker_active;
-    _ = current; // autofix
 
     // try writer.flush();
     if (0 != gui.guiDropdownBox(
@@ -94,11 +95,11 @@ fn filePicker(
         self.picker_edit,
     )) self.picker_edit = !self.picker_edit;
 
-    // if (current != self.picker_active) {
-    //     self.state.chip.loadRomFromPath(self.rom_list[@intCast(self.picker_active)]) catch |e| {
-    //         std.log.err("Could not load ROM '{s}': {}s\n", .{ self.rom_list[@intCast(self.picker_active)], e });
-    //     };
-    // }
+    if (current != self.picker_active) {
+        self.state.chip.rom0.loadFromFile(self.rom_list[@intCast(self.picker_active)]) catch |e| {
+            std.log.err("Could not load ROM '{s}': {}s\n", .{ self.rom_list[@intCast(self.picker_active)], e });
+        };
+    }
 }
 
 /// Retrieves a list of file names from the GUI's `rom_list` and returns it as a null-terminated string.
@@ -236,6 +237,31 @@ pub fn audio(
         }
     }
 }
+
+pub fn drawMemory(self: *GUI, bound: rl.Rectangle) void {
+    rl.drawRectangleLinesEx(bound, 1, rl.Color.light_gray);
+    const block_size = 2;
+    const rom = self.state.chip.rom0;
+
+    const inner = rl.Rectangle.init(bound.x + 5, bound.y + 5, bound.width - 5, bound.height - 5);
+    const line_blocks: usize = @divFloor(@as(usize, @intFromFloat(inner.width)), block_size);
+
+    rl.drawText(rl.textFormat("%d bytes", .{self.state.chip.rom0.mem.len}), @intFromFloat(bound.x), @intFromFloat(bound.y), 12, rl.Color.red);
+    for (rom.mem[0..rom.mem.len], 0..) |color, i| {
+        const x = @as(usize, @intFromFloat(inner.x)) + (block_size * (i % line_blocks));
+        const y = @as(usize, @intFromFloat(inner.y)) + (block_size * (i / line_blocks));
+        if (@as(f32, @floatFromInt(y)) >= inner.y) break;
+
+        rl.drawRectangle(
+            @intCast(x),
+            @intCast(y),
+            block_size,
+            block_size,
+            if (i == self.state.chip.cpu.readReg(.PC)) rl.Color.init(0, 255, 75, 255) else rl.Color.init(color, color, color, 255),
+        );
+    }
+}
+
 var dummy: f32 = 0;
 
 pub fn joyPad(self: *GUI, bound: rl.Rectangle) void {
