@@ -2,18 +2,43 @@
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.10.7/.schema/devbox.schema.json",
   "packages": [
     "zig@0.13.0",
-    "github:nixos/nixpkgs/24.05#zls"
+    "zls@latest",
+    "cmake@latest",
+    "python3@latest",
+    "nodejs@latest",
+    "git@latest"
   ],
   "shell": {
+
     "init_hook": [
-      "echo 'Welcome to devbox!' > /dev/null"
+      "export EMSDK=\"$DEVBOX_PROJECT_ROOT/emsdk\""
     ],
     "scripts": {
+      "init_emsdk" : [
+        "git clone https://github.com/emscripten-core/emsdk.git $EMSDK || true",
+        "cd $EMSDK && ./emsdk install latest && ./emsdk activate latest",
+        "unset NIX_CFLAGS_COMPILE 2&1> /dev/null",
+        "unset NIX_LDFLAGS 2&1> /dev/null",
+        "set -e NIX_CFLAGS_COMPILE 2&1> /dev/null",
+        "set -e NIX_LDFLAGS 2&1> /dev/null"
+      ],
       "test": [
         "zig build test"
       ],
       "clean": [
-        "rm -rf .zig-cache zig-out"
+        "rm -rf .zig-cache zig-out $EMSDK"
+      ],
+      "build-web": [
+        "devbox run init_emsdk",
+        "EMSDK_QUIET=1 source $EMSDK/emsdk_env.sh",
+        "echo $NODE_PATH",
+        "zig build -Dtarget=wasm32-emscripten --sysroot $EMSDK/upstream/emscripten"
+      ],
+      "run-web": [
+        "devbox run init_emsdk",
+        "EMSDK_QUIET=1 source $EMSDK/emsdk_env.sh",
+        "echo $NODE_PATH",
+        "zig build run -Dtarget=wasm32-emscripten --sysroot $EMSDK/upstream/emscripten"
       ]
     }
   }
