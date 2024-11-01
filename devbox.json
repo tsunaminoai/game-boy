@@ -1,20 +1,63 @@
 {
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.10.7/.schema/devbox.schema.json",
-  "packages": [
-    "zig@0.13.0",
-    "zls@latest",
-    "cmake@latest",
-    "python3@latest",
-    "nodejs@latest",
-    "git@latest"
-  ],
+  "packages": {
+    "zig":     "0.13.0",
+    "zls":     "latest",
+    "cmake":   "latest",
+    "python3": "latest",
+    "nodejs":  "latest",
+    "git":     "latest",
+    "libGL": {
+      "version":   "latest",
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "xorg.libX11": {
+      "version":   "latest",
+      "outputs":   ["out", "dev"],
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "xorg.libXCursor": {
+      "version":   "latest",
+      "outputs":   ["out", "dev"],
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "xorg.libXrandr": {
+      "version":   "latest",
+      "outputs":   ["out", "dev"],
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "xorg.libXext": {
+      "version":   "latest",
+      "outputs":   ["out", "dev"],
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "xorg.libXinerama": {
+      "version":   "latest",
+      "outputs":   ["out", "dev"],
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "xorg.libXi": {
+      "version":   "latest",
+      "outputs":   ["out", "dev"],
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "darwin.apple_sdk.frameworks.AppKit":         {"platforms": ["x86_64-darwin", "aarch64-darwin"]},
+    "darwin.apple_sdk.frameworks.AudioToolbox":   {"platforms": ["x86_64-darwin", "aarch64-darwin"]},
+    "darwin.apple_sdk.frameworks.CoreAudio":      {"platforms": ["x86_64-darwin", "aarch64-darwin"]},
+    "darwin.apple_sdk.frameworks.CoreFoundation": {"platforms": ["x86_64-darwin", "aarch64-darwin"]},
+    "darwin.CF": {
+      "platforms": ["x86_64-darwin", "aarch64-darwin"]
+    },
+    "darwin.apple_sdk.frameworks.ApplicationServices": {
+      "platforms": ["x86_64-darwin", "aarch64-darwin"]
+    }
+  },
   "shell": {
-
     "init_hook": [
       "export EMSDK=\"$DEVBOX_PROJECT_ROOT/emsdk\""
     ],
     "scripts": {
-      "init_emsdk" : [
+      "init_emsdk": [
         "git clone https://github.com/emscripten-core/emsdk.git $EMSDK || true",
         "cd $EMSDK && ./emsdk install latest && ./emsdk activate latest",
         "unset NIX_CFLAGS_COMPILE 2&1> /dev/null",
