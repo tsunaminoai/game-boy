@@ -27,6 +27,10 @@
             .url = "https://github.com/Not-Nik/raylib-zig/archive/devel.tar.gz",
             .hash = "1220fc554f109a45a77ee5c58b4a847936dc0b24dcbed818b65a02de1b58500041dc",
         },
+        .vaxis = .{
+            .url = "https://github.com/rockorager/libvaxis/archive/refs/heads/main.zip",
+            .hash = "12209c6dbe3203c7a3c710e33753a562ec5cbcf26177879b5931e205721a4cc0de15",
+        },
     },
 
     // Specifies the set of files and directories that are included in this package.
