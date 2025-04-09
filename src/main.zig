@@ -28,7 +28,7 @@ pub fn main() !void {
     );
 
     while (!rl.windowShouldClose()) {
-        if (rl.isKeyPressed(.key_backspace)) {
+        if (rl.isKeyPressed(.backspace)) {
             try reload(state);
         }
         gameTick(state);
