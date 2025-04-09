@@ -1,7 +1,12 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const rl = @import("raylib");
 const Config = @import("types.zig").Config;
-const LibName = "libgame-boy.dylib";
+const LibName = switch (builtin.os.tag) {
+    .macos => "libgame-boy.dylib",
+    .linux => "libgame-boy.so",
+    else => @compileError("Unsupported OS"),
+};
 
 var alloc: std.mem.Allocator = std.heap.c_allocator;
 
