@@ -429,7 +429,7 @@ test "CPU: Tick & Fetch" {
     try eql(cpu.readReg(.PC), ldDEA.length);
     try eql(cpu.remaining_cycles, ldDEA.cycles);
     try eql(cpu.total_cycles, ldDEA.cycles);
-    for (cpu.remaining_cycles) |_| {
+    for (0..cpu.remaining_cycles) |_| {
         try cpu.tick();
     }
     try eql(cpu.total_cycles, 8);

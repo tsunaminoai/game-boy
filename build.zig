@@ -2,9 +2,9 @@ const std = @import("std");
 const rlz = @import("raylib-zig");
 
 pub const LibName = "game-boy";
-pub const LibVersion = .{ .major = 0, .minor = 1, .patch = 0 };
+pub const LibVersion = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 0 };
 pub const ChipLibName = "gb";
-pub const ChipVersion = .{ .major = 0, .minor = 1, .patch = 0 };
+pub const ChipVersion = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 0 };
 pub const ExeName = "game-boy";
 
 pub fn build(b: *std.Build) !void {
@@ -20,6 +20,7 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
         .shared = true,
+        .linux_display_backend = .X11,
     });
 
     const raylib = raylib_dep.module("raylib");
@@ -28,7 +29,7 @@ pub fn build(b: *std.Build) !void {
 
     //web exports are completely separate
     if (target.query.os_tag == .emscripten) {
-        const exe_lib = rlz.emcc.compileForEmscripten(b, ExeName, "src/main.zig", target, optimize);
+        const exe_lib = try rlz.emcc.compileForEmscripten(b, ExeName, "src/main.zig", target, optimize);
         //FIXME: There is a bug in emsc for 0.13.0 https://github.com/Not-Nik/raylib-zig/issues/108 upstream
 
         exe_lib.linkLibrary(raylib_artifact);

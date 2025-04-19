@@ -67,7 +67,7 @@ pub fn processor(self: *Audio) !void {
 
     rl.setAudioStreamBufferSizeDefault(StreamBufferSize);
 
-    const stream = rl.loadAudioStream(
+    const stream = try rl.loadAudioStream(
         SampleRate,
         8 * @sizeOf(f32),
         1,

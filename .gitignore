@@ -6,6 +6,8 @@ zig-out/
 *.bin
 .devbox/
 
+.venv/
+
 # C boilerplate
 
 # Prerequisites

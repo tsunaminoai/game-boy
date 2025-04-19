@@ -70,16 +70,16 @@ pub fn handleEvents(self: *Game) void {
         // Zoom out
         self.scale = self.scale.subtractValue(0.01);
     }
-    if (rl.isMouseButtonDown(.mouse_button_left)) {
+    if (rl.isMouseButtonDown(.left)) {
         const pos = rl.getMouseDelta().multiply(self.scale).scale(5);
         self.shift = self.shift.add(pos);
     }
 
     switch (rl.getKeyPressed()) {
         // .key_d => self.debug = !self.debug,
-        .key_s => std.debug.print("State: {any}\n", .{self}),
-        .key_p => self.running = !self.running,
-        .key_q => rl.closeWindow(),
+        .s => std.debug.print("State: {any}\n", .{self}),
+        .p => self.running = !self.running,
+        .q => rl.closeWindow(),
         else => |k| {
             _ = k; // autofix
             // self.chip.keyPress(@truncate(@as(u16, @intCast(@intFromEnum(k)))));
@@ -93,7 +93,7 @@ pub fn tick(self: *Game) void {
     const denom = 1.0 / self.target_frame_rate;
     const ticks_per_frame = self.clock_hz / denom;
     if (self.running) {
-        for (@as(usize, @intFromFloat(if (ticks_per_frame > 1.0) ticks_per_frame else 1.0))) |_|
+        for (0..@as(usize, @intFromFloat(if (ticks_per_frame > 1.0) ticks_per_frame else 1.0))) |_|
             // self.chip.tick();
             _ = 1;
     }

@@ -1,7 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.10.7/.schema/devbox.schema.json",
   "packages": {
-    "zig":     "0.13.0",
     "zls":     "latest",
     "cmake":   "latest",
     "python3": "latest",
@@ -50,7 +49,9 @@
     },
     "darwin.apple_sdk.frameworks.ApplicationServices": {
       "platforms": ["x86_64-darwin", "aarch64-darwin"]
-    }
+    },
+    "zig":             "latest",
+    "wayland-scanner": "latest"
   },
   "shell": {
     "init_hook": [

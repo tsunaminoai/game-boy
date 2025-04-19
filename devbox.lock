@@ -293,6 +293,98 @@
         }
       }
     },
+    "wayland-scanner@latest": {
+      "last_modified": "2025-03-27T11:50:31Z",
+      "resolved": "github:NixOS/nixpkgs/6c5963357f3c1c840201eda129a99d455074db04#wayland-scanner",
+      "source": "devbox-search",
+      "version": "1.23.1",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/c926xf06i98a7i1fdxmfvskp7v1mxvwl-wayland-scanner-1.23.1",
+              "default": true
+            },
+            {
+              "name": "bin",
+              "path": "/nix/store/043l22m2rqjnqbjy6sr0ylmg7kf2vw5h-wayland-scanner-1.23.1-bin",
+              "default": true
+            },
+            {
+              "name": "dev",
+              "path": "/nix/store/981x5gafn42l502plyfqgj3pcc3xngwv-wayland-scanner-1.23.1-dev"
+            }
+          ],
+          "store_path": "/nix/store/c926xf06i98a7i1fdxmfvskp7v1mxvwl-wayland-scanner-1.23.1"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/21wqpyi8ld767z7lg41vgcbh572g3nr1-wayland-scanner-1.23.1",
+              "default": true
+            },
+            {
+              "name": "bin",
+              "path": "/nix/store/0v2jl4lhgd49z1mbixd78ghlynsnkhcc-wayland-scanner-1.23.1-bin",
+              "default": true
+            },
+            {
+              "name": "debug",
+              "path": "/nix/store/sadn07mqdfnaj7nyj8rqfbrw8mgnbfwy-wayland-scanner-1.23.1-debug"
+            },
+            {
+              "name": "dev",
+              "path": "/nix/store/4q8zabg4n6wainm1d1zqpahk6jdlj6sq-wayland-scanner-1.23.1-dev"
+            }
+          ],
+          "store_path": "/nix/store/21wqpyi8ld767z7lg41vgcbh572g3nr1-wayland-scanner-1.23.1"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/58wmvb70y756238961b38snnfbjakywc-wayland-scanner-1.23.1",
+              "default": true
+            },
+            {
+              "name": "bin",
+              "path": "/nix/store/j8zc3a6d1glf5k5drv30xyxaqb5ay8y5-wayland-scanner-1.23.1-bin",
+              "default": true
+            },
+            {
+              "name": "dev",
+              "path": "/nix/store/c86szd2awz2f5rqw8c66y6g9a29g9kcc-wayland-scanner-1.23.1-dev"
+            }
+          ],
+          "store_path": "/nix/store/58wmvb70y756238961b38snnfbjakywc-wayland-scanner-1.23.1"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/lkl7c23zi06fk9z9jpja3sf0c0cy7l9s-wayland-scanner-1.23.1",
+              "default": true
+            },
+            {
+              "name": "bin",
+              "path": "/nix/store/q431q3lzh605m6i38gbs2q26aj5g6bhm-wayland-scanner-1.23.1-bin",
+              "default": true
+            },
+            {
+              "name": "debug",
+              "path": "/nix/store/al2m2wsjxz5f1ffzpax5dd7nj0yqgxks-wayland-scanner-1.23.1-debug"
+            },
+            {
+              "name": "dev",
+              "path": "/nix/store/1fyg2cybqv2ys72i9xgb0sidvdb9zjmn-wayland-scanner-1.23.1-dev"
+            }
+          ],
+          "store_path": "/nix/store/lkl7c23zi06fk9z9jpja3sf0c0cy7l9s-wayland-scanner-1.23.1"
+        }
+      }
+    },
     "xorg.libX11@latest": {
       "last_modified": "2024-10-13T23:44:06Z",
       "resolved": "github:NixOS/nixpkgs/d4f247e89f6e10120f911e2e2d2254a050d0f732#xorg.libX11",
@@ -769,67 +861,67 @@
         }
       }
     },
-    "zig@0.13.0": {
-      "last_modified": "2024-10-13T23:44:06Z",
-      "resolved": "github:NixOS/nixpkgs/d4f247e89f6e10120f911e2e2d2254a050d0f732#zig",
+    "zig@latest": {
+      "last_modified": "2025-03-23T05:31:05Z",
+      "resolved": "github:NixOS/nixpkgs/dd613136ee91f67e5dba3f3f41ac99ae89c5406b#zig",
       "source": "devbox-search",
-      "version": "0.13.0",
+      "version": "0.14.0",
       "systems": {
         "aarch64-darwin": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/akji5m23xv1yaznj6snspvwladfdn1ha-zig-0.13.0",
+              "path": "/nix/store/rinia2aazl4ba2q9lvmbkzzvf3dx82k0-zig-0.14.0",
               "default": true
             },
             {
               "name": "doc",
-              "path": "/nix/store/fnxp0sxx19rgb4zkcr2nxr4f9x10xj4b-zig-0.13.0-doc"
+              "path": "/nix/store/3h3w5rx02fgsi2spk38c2drqxyygxra8-zig-0.14.0-doc"
             }
           ],
-          "store_path": "/nix/store/akji5m23xv1yaznj6snspvwladfdn1ha-zig-0.13.0"
+          "store_path": "/nix/store/rinia2aazl4ba2q9lvmbkzzvf3dx82k0-zig-0.14.0"
         },
         "aarch64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/x6pf1zxhgp0h8bj3j54qr89pz93xmawg-zig-0.13.0",
+              "path": "/nix/store/j01cnwirkn9dc3k1srhsdrh1hjqkymcd-zig-0.14.0",
               "default": true
             },
             {
               "name": "doc",
-              "path": "/nix/store/5dq8nhcd0gw0my1srzg9fxfkxh49sq8p-zig-0.13.0-doc"
+              "path": "/nix/store/bdxhm7svza9lbsn6k59bxz2dzyjjyi3k-zig-0.14.0-doc"
             }
           ],
-          "store_path": "/nix/store/x6pf1zxhgp0h8bj3j54qr89pz93xmawg-zig-0.13.0"
+          "store_path": "/nix/store/j01cnwirkn9dc3k1srhsdrh1hjqkymcd-zig-0.14.0"
         },
         "x86_64-darwin": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/grqjn04zii2g9zvnx51mk2rj1qa52s77-zig-0.13.0",
+              "path": "/nix/store/cyqal1kd73a76api1gmmils6mbxlp1na-zig-0.14.0",
               "default": true
             },
             {
               "name": "doc",
-              "path": "/nix/store/jlbvp9gqwnvbzvglfpvfyvs0c3f4zsj2-zig-0.13.0-doc"
+              "path": "/nix/store/wb68g4fjyhn8fc2x516jiz2h9ln544y8-zig-0.14.0-doc"
             }
           ],
-          "store_path": "/nix/store/grqjn04zii2g9zvnx51mk2rj1qa52s77-zig-0.13.0"
+          "store_path": "/nix/store/cyqal1kd73a76api1gmmils6mbxlp1na-zig-0.14.0"
         },
         "x86_64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/6q6srzrba184plhcd7vpv3k0b9qsx6vx-zig-0.13.0",
+              "path": "/nix/store/dzdlr4lms4wgjvi02r1pcqh54iiq9pn5-zig-0.14.0",
               "default": true
             },
             {
               "name": "doc",
-              "path": "/nix/store/fy7qwrkr8xi6y4kp2a1lnbl592nzlyjz-zig-0.13.0-doc"
+              "path": "/nix/store/ic33i3ddk1ah4rgqlr4fcx6did1fm8wv-zig-0.14.0-doc"
             }
           ],
-          "store_path": "/nix/store/6q6srzrba184plhcd7vpv3k0b9qsx6vx-zig-0.13.0"
+          "store_path": "/nix/store/dzdlr4lms4wgjvi02r1pcqh54iiq9pn5-zig-0.14.0"
         }
       }
     },
