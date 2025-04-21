@@ -379,6 +379,7 @@ pub fn execute(self: *Z80, n: usize) !void {
             inst = self.getAddress(self, self.PC);
             len = blk: switch (inst) {
                 0x00...0xCA => {
+                    std.debug.print("Running Instruction {X:0>2}\n", .{inst});
                     const instruction = Instructions[inst];
                     const l = instruction(self);
                     self.PC += 1;
@@ -410,5 +411,10 @@ test {
             pub fn fun(_: *anyopaque) void {}
         }.fun,
     };
+    z80.Registers.B = 0x01;
+    z80.Registers.C = 0x02;
+    z80.putAddress16(0x0, 0x0003);
     try z80.execute(1);
+    try tst.expectEqual( 0x01, z80.Registers.B);
+    try tst.expectEqual( 0x03, z80.Registers.C);
 }
