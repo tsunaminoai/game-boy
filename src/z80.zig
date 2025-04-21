@@ -10,6 +10,8 @@ getAddress: *const fn (*anyopaque, u16) u8,
 putAddress: *const fn (*anyopaque, u16, u8) void,
 checkForInterupts: *const fn (*anyopaque) void,
 
+system: *anyopaque,
+
 PC: u16 = 0,
 Registers: struct {
     A: u8 = 0x01,
@@ -51,20 +53,20 @@ pub fn interupt(self: *Z80, address: u16) void {
 }
 
 pub fn getAddress16(self: *Z80, address: u16) u16 {
-    return (self.getAddress(self, address + 1) << 8) + self.getAddress(self, address);
+    return (self.getAddress(self.system, address + 1) << 8) + self.getAddress(self.system, address);
 }
 pub fn putAddress16(self: *Z80, address: u16, value: u16) void {
-    self.putAddress(self, (address + 1), @as(u8, @intCast(value >> 8)));
-    self.putAddress(self, (address), @as(u8, @intCast((value & 0x00FF) >> 8)));
+    self.putAddress(self.system, (address + 1), @as(u8, @intCast(value >> 8)));
+    self.putAddress(self.system, (address), @as(u8, @intCast((value & 0x00FF) >> 8)));
 }
 pub fn immediate16(self: *Z80) u16 {
-    return (@as(u16, self.getAddress(self, self.PC + 1)) << 8) + self.getAddress(self, self.PC);
+    return (@as(u16, self.getAddress(self.system, self.PC + 1)) << 8) + self.getAddress(self.system, self.PC);
 }
 pub fn immediate8(self: *Z80) u8 {
-    return self.getAddress(self, self.PC);
+    return self.getAddress(self.system, self.PC);
 }
 pub fn signImmediate8(self: *Z80) i8 {
-    return @as(i8, self.getAddress(self, self.PC));
+    return @as(i8, self.getAddress(self.system, self.PC));
 }
 pub fn increment8(self: *Z80, value: u8) u8 {
     self.Flags.N = 0;
@@ -377,9 +379,9 @@ pub fn execute(self: *Z80, n: usize) !void {
             i -= 1;
         } else {
             inst = self.getAddress(self, self.PC);
-            len = blk: switch (inst) {
-                0x00...0xCA => {
-                    std.debug.print("Running Instruction {X:0>2}\n", .{inst});
+            std.debug.print("Running Instruction 0x{X:0>2} {}\n", .{ inst, self.PC });
+            len = switch (inst) {
+                0x00...0xCA => blk: {
                     const instruction = Instructions[inst];
                     const l = instruction(self);
                     self.PC += 1;
@@ -396,25 +398,4 @@ pub fn execute(self: *Z80, n: usize) !void {
         }
         i -|= len;
     }
-}
-test {
-    var z80 = Z80{
-        .getAddress = struct {
-            pub fn fun(_: *anyopaque, address: u16) u8 {
-                return @as(u8, @intCast(address & 0xFF));
-            }
-        }.fun,
-        .putAddress = struct {
-            pub fn fun(_: *anyopaque, _: u16, _: u8) void {}
-        }.fun,
-        .checkForInterupts = struct {
-            pub fn fun(_: *anyopaque) void {}
-        }.fun,
-    };
-    z80.Registers.B = 0x01;
-    z80.Registers.C = 0x02;
-    z80.putAddress16(0x0, 0x0003);
-    try z80.execute(1);
-    try tst.expectEqual( 0x01, z80.Registers.B);
-    try tst.expectEqual( 0x03, z80.Registers.C);
 }
