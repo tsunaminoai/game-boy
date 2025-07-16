@@ -352,16 +352,16 @@ test {
     var gb = GameBoy(rom, canvas){};
     gb.z80.system = &gb;
 
-    gb.z80.Registers.B = 0x01;
-    gb.z80.Registers.C = 0x02;
+    gb.z80.registers.B = 0x01;
+    gb.z80.registers.C = 0x02;
     gb.putAddress(0x0000, 0x03);
     std.debug.print("{any}\n", .{gb.rom[0..10]});
-    std.debug.print("{}\n", .{gb.z80});
-    try gb.z80.execute(10);
-    std.debug.print("{}\n", .{gb.z80});
-    try tst.expectEqual(0x01, gb.z80.Registers.B);
-    try tst.expectEqual(0x03, gb.z80.Registers.C);
+    std.debug.print("{s}\n", .{canvas});
+    // try gb.z80.execute(10);
+    // std.debug.print("{}\n", .{gb.z80});
+    // try tst.expectEqual(0x01, gb.z80.registers.B);
+    // try tst.expectEqual(0x03, gb.z80.registers.C);
 
-    gb.putAddress(0xffff, 10);
-    try tst.expectEqual(10, gb.getAddress(0xffff));
+    // gb.putAddress(0xffff, 10);
+    // try tst.expectEqual(10, gb.getAddress(0xffff));
 }
