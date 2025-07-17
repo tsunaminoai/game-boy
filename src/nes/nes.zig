@@ -98,6 +98,87 @@ const Controller = struct {
     }
 };
 
+/// Software emulator for MOS Technologies 6502 CPU
+///
+/// It is little endian (least significant byte first in 16bit words)
+///
+/// References:
+///     [1] https://www.masswerk.at/6502/6502_instruction_set.html
+///     [2] http://www.obelisk.me.uk/6502/addressing.html
+///     [3] https://www.csh.rit.edu/~moffitt/docs/6502.html
+///
+///     [4] V-flag:  http://www.6502.org/tutorials/vflag.html
+///     [5] Decimal mode: http://www.6502.org/tutorials/decimal_mode.html
+///     [6] PC: http://6502.org/tutorials/6502opcodes.html#PC
+///     [7] http://forum.6502.org/viewtopic.php?t=1708
+///
+///     [8] Assembler online: https://www.masswerk.at/6502/assembler.html
+///     [9] CPU startup sequence:  https://www.pagetable.com/?p=410
+///     [10] B-flag: http://wiki.nesdev.com/w/index.php/Status_flags#The_B_flag
+///     [11] V-flag: http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
+///     [12] JMP indirect 'bug':  http://forum.6502.org/viewtopic.php?f=2&t=6170
+///
+///     [13] Undocumented opcodes: http://nesdev.com/undocumented_opcodes.txt
+///     [14] Undocumented opcodes: http://www.ffd2.com/fridge/docs/6502-NMOS.extra.opcodes
+///
+///     [15] Amazing timing data: http://www.6502.org/users/andre/petindex/local/64doc.txt
+///
+///     [16] Undocumented opcodes: http://hitmen.c02.at/files/docs/c64/NoMoreSecrets-NMOS6510UnintendedOpcodes-20162412.pdf
+const MOS6502 = struct {
+    memory: MemoryModule,
+    instuctions: void,
+
+    registers: struct { a: Byte, x: Byte, y: Byte },
+
+    pc: Address,
+    sp: Address,
+
+    flags: packed struct(Byte) {
+        n: bool = false,
+        v: bool = false,
+        d: bool = false,
+        i: bool = false,
+        z: bool = false,
+        c: bool = false,
+        _: u2 = 0,
+    },
+    cycles_since_reset: usize = 0,
+    started: false,
+
+    last_pc: Address,
+    support_BCD: bool = false,
+    aax_sets_flags: bool = false,
+    undoc_support_level: usize = 1,
+    stack_underflow_causes_exception: bool = true,
+
+    const StatusRegisterMasks = enum(Byte) {
+        n = 0b1000_0000, // negative
+        v = 0b0100_0000, // overflow
+        x = 0b0010_0000, // unused, always 1
+        b = 0b0001_0000, // break (indicates brk was excuted. only set on stack copy)
+        d = 0b0000_1000, // decimal
+        i = 0b0000_0100, // interupt disable
+        z = 0b0000_0010, // zero
+        c = 0b0000_0001, // carry
+    };
+
+    // mem locations
+    const StackPage = 0x0100;
+    const IRQBRKVectorAddr = 0xFFFE;
+    const ResetVectorAddr = 0xFFFC;
+    const NMIVectorAddr = 0xFFFA;
+
+    // cycles taken to do the NMI or IRQ interrupt - (this is a guess, based on BRK, couldn't find a ref for this!)
+    const InteruptRequestCyles = 7;
+    const OAMDMACPUCycles = 513;
+
+    pub fn reset() void {}
+    pub fn set_reset_vector() void {}
+    pub fn trigger() void {}
+    pub fn run_next() void {}
+    pub fn stack_push() void {}
+    pub fn stack_pop() void {}
+};
 const Cart = struct {
     ptr: *anyopaque,
     vtab: struct {
@@ -145,6 +226,36 @@ const Cart = struct {
             _ = value; // autofix
         }
     };
+};
+
+pub const PPU = struct {
+    pub fn write_oam(self: *PPU) void {
+        _ = self; // autofix
+    }
+    pub fn ppu_status(self: *PPU) void {
+        _ = self; // autofix
+    }
+    pub fn read_register(self: *PPU) void {
+        _ = self; // autofix
+    }
+    pub fn write_register(self: *PPU) void {
+        _ = self; // autofix
+    }
+    pub fn run_cycles(self: *PPU) void {
+        _ = self; // autofix
+    }
+    pub fn fill_bkg_latches(self: *PPU) void {
+        _ = self; // autofix
+    }
+    pub fn shift_bkg_latches(self: *PPU) void {
+        _ = self; // autofix
+    }
+    pub fn decode_pallet(self: *PPU) void {
+        _ = self; // autofix
+    }
+    fn new_frame(self: *PPU) void {
+        _ = self; // autofix
+    }
 };
 
 pub const InteruptListener = struct {
