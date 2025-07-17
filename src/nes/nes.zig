@@ -494,3 +494,342 @@ pub const NES = struct {
         _ = self; // autofix
     }
 };
+
+const AddressMode = enum(Byte) {
+    immediate = 0,
+    zeropage = 1,
+    zeropage_x = 2,
+    zeropage_y = 20,
+    absolute = 3,
+    absolute_x = 4,
+    absolute_y = 5,
+    indirect_x = 6,
+    indirect_y = 7,
+    implied = 10,
+    relative = 11,
+    accumulator = 12,
+    indirect = 13,
+};
+
+// Handle fractional cycles by storing as tenths of cycles
+const Instruction = struct {
+    bytecode: union(enum) {
+        single: Byte,
+        multiple: []const Byte,
+    },
+    size_bytes: usize,
+    cycles_tenths: u16, // Store cycles * 10 to handle fractional values
+    name: []const u8 = "Unlabeled",
+
+    pub fn init_single(bytecode: Byte, size_bytes: usize, cycles: f32) Instruction {
+        return Instruction{
+            .bytecode = .{ .single = bytecode },
+            .size_bytes = size_bytes,
+            .cycles_tenths = @intFromFloat(cycles * 10),
+        };
+    }
+
+    pub fn init_multiple(bytecodes: []const Byte, size_bytes: usize, cycles: f32) Instruction {
+        return Instruction{
+            .bytecode = .{ .multiple = bytecodes },
+            .size_bytes = size_bytes,
+            .cycles_tenths = @intFromFloat(cycles * 10),
+        };
+    }
+
+    pub fn get_cycles(self: Instruction) f32 {
+        return @as(f32, @floatFromInt(self.cycles_tenths)) / 10.0;
+    }
+};
+
+const InstructionSet = struct {
+    name: []const u8,
+    modes: std.EnumMap(AddressMode, ?Instruction),
+
+    pub fn init(name: []const u8) InstructionSet {
+        return InstructionSet{
+            .name = name,
+            .modes = std.EnumMap(AddressMode, ?Instruction).init(.{}),
+        };
+    }
+
+    pub fn add_mode(self: *InstructionSet, mode: AddressMode, instruction: Instruction) void {
+        self.modes.put(mode, instruction);
+    }
+};
+
+// Helper function to create instruction sets
+fn create_instruction_set(name: []const u8, modes: anytype) InstructionSet {
+    @setEvalBranchQuota(100_000);
+
+    var instruction_set = InstructionSet.init(name);
+
+    inline for (std.meta.fields(@TypeOf(modes))) |field| {
+        const mode = std.meta.stringToEnum(AddressMode, field.name) orelse continue;
+        const mode_data = @field(modes, field.name);
+        instruction_set.add_mode(mode, mode_data);
+    }
+
+    return instruction_set;
+}
+
+// Static arrays for multiple bytecode instructions
+const DopZeropageBytecodes = [_]Byte{ 0x04, 0x14, 0x44, 0x64 };
+const DopZeropageXBytecodes = [_]Byte{ 0x14, 0x34, 0x54, 0x74, 0xD4, 0xF4 };
+const DopImmediateBytecodes = [_]Byte{ 0x80, 0x82, 0x89, 0xC2, 0xE2 };
+const TopAbsoluteXBytecodes = [_]Byte{ 0x1C, 0x3C, 0x5C, 0x7C, 0xDC, 0xFC };
+const KilImpliedBytecodes = [_]Byte{ 0x02, 0x12, 0x22, 0x32, 0x42, 0x52, 0x62, 0x72, 0x92, 0xB2, 0xD2, 0xF2 };
+const AacImmediateBytecodes = [_]Byte{ 0x0B, 0x2B };
+
+const Instructions = std.StaticStringMap(InstructionSet).initComptime(.{
+    .{ "ADC", create_instruction_set("adc", .{
+        .immediate = Instruction.init_single(0x69, 2, 2),
+        .zeropage = Instruction.init_single(0x65, 2, 3),
+        .zeropage_x = Instruction.init_single(0x75, 2, 4),
+        .absolute = Instruction.init_single(0x6D, 3, 4),
+        .absolute_x = Instruction.init_single(0x7D, 3, 4.1),
+        .absolute_y = Instruction.init_single(0x79, 3, 4.1),
+        .indirect_x = Instruction.init_single(0x61, 2, 6),
+        .indirect_y = Instruction.init_single(0x71, 2, 5.1),
+    }) },
+
+    .{ "AND", create_instruction_set("and", .{
+        .immediate = Instruction.init_single(0x29, 2, 2),
+        .zeropage = Instruction.init_single(0x25, 2, 3),
+        .zeropage_x = Instruction.init_single(0x35, 2, 4),
+        .absolute = Instruction.init_single(0x2D, 3, 4),
+        .absolute_x = Instruction.init_single(0x3D, 3, 4.1),
+        .absolute_y = Instruction.init_single(0x39, 3, 4.1),
+        .indirect_x = Instruction.init_single(0x21, 2, 6),
+        .indirect_y = Instruction.init_single(0x31, 2, 5.1),
+    }) },
+
+    .{ "ASL", create_instruction_set("asl", .{
+        .accumulator = Instruction.init_single(0x0A, 1, 2),
+        .zeropage = Instruction.init_single(0x06, 2, 5),
+        .zeropage_x = Instruction.init_single(0x16, 2, 6),
+        .absolute = Instruction.init_single(0x0E, 3, 6),
+        .absolute_x = Instruction.init_single(0x1E, 3, 7),
+    }) },
+
+    .{ "BCC", create_instruction_set("bcc", .{
+        .relative = Instruction.init_single(0x90, 2, 2.12),
+    }) },
+
+    .{ "BCS", create_instruction_set("bcs", .{
+        .relative = Instruction.init_single(0xB0, 2, 2.12),
+    }) },
+
+    .{ "BEQ", create_instruction_set("beq", .{
+        .relative = Instruction.init_single(0xF0, 2, 2.12),
+    }) },
+
+    .{ "BIT", create_instruction_set("bit", .{
+        .zeropage = Instruction.init_single(0x24, 2, 3),
+        .absolute = Instruction.init_single(0x2C, 3, 4),
+    }) },
+
+    .{ "BMI", create_instruction_set("bmi", .{
+        .relative = Instruction.init_single(0x30, 2, 2.12),
+    }) },
+
+    .{ "BNE", create_instruction_set("bne", .{
+        .relative = Instruction.init_single(0xD0, 2, 2.12),
+    }) },
+
+    .{ "BPL", create_instruction_set("bpl", .{
+        .relative = Instruction.init_single(0x10, 2, 2.12),
+    }) },
+
+    .{ "STY", create_instruction_set("sty", .{
+        .zeropage = Instruction.init_single(0x84, 2, 3),
+        .zeropage_x = Instruction.init_single(0x94, 2, 4),
+        .absolute = Instruction.init_single(0x8C, 3, 4),
+    }) },
+
+    .{ "TAX", create_instruction_set("tax", .{
+        .implied = Instruction.init_single(0xAA, 1, 2),
+    }) },
+
+    .{ "TAY", create_instruction_set("tay", .{
+        .implied = Instruction.init_single(0xA8, 1, 2),
+    }) },
+
+    .{ "TSX", create_instruction_set("tsx", .{
+        .implied = Instruction.init_single(0xBA, 1, 2),
+    }) },
+
+    .{ "TXA", create_instruction_set("txa", .{
+        .implied = Instruction.init_single(0x8A, 1, 2),
+    }) },
+
+    .{ "TXS", create_instruction_set("txs", .{
+        .implied = Instruction.init_single(0x9A, 1, 2),
+    }) },
+
+    .{ "TYA", create_instruction_set("tya", .{
+        .implied = Instruction.init_single(0x98, 1, 2),
+    }) },
+
+    // Undocumented instructions
+    .{ "DOP", create_instruction_set("dop", .{
+        .zeropage = Instruction.init_multiple(&DopZeropageBytecodes, 2, 3),
+        .zeropage_x = Instruction.init_multiple(&DopZeropageXBytecodes, 2, 4),
+        .immediate = Instruction.init_multiple(&DopImmediateBytecodes, 2, 2),
+    }) },
+
+    .{ "TOP", create_instruction_set("top", .{
+        .absolute = Instruction.init_single(0x0C, 3, 4),
+        .absolute_x = Instruction.init_multiple(&TopAbsoluteXBytecodes, 3, 4.1),
+    }) },
+
+    .{ "KIL", create_instruction_set("kil", .{
+        .implied = Instruction.init_multiple(&KilImpliedBytecodes, 1, 1),
+    }) },
+
+    .{ "LAX", create_instruction_set("lax", .{
+        .zeropage = Instruction.init_single(0xA7, 2, 3),
+        .zeropage_y = Instruction.init_single(0xB7, 2, 4),
+        .absolute = Instruction.init_single(0xAF, 3, 4),
+        .absolute_y = Instruction.init_single(0xBF, 3, 4.1),
+        .indirect_x = Instruction.init_single(0xA3, 2, 6),
+        .indirect_y = Instruction.init_single(0xB3, 2, 5.1),
+    }) },
+
+    .{ "AAX", create_instruction_set("aax", .{
+        .zeropage = Instruction.init_single(0x87, 2, 3),
+        .zeropage_y = Instruction.init_single(0x97, 2, 4),
+        .indirect_x = Instruction.init_single(0x83, 2, 6),
+        .absolute = Instruction.init_single(0x8F, 3, 4),
+    }) },
+
+    .{ "DCP", create_instruction_set("dcp", .{
+        .zeropage = Instruction.init_single(0xC7, 2, 5),
+        .zeropage_x = Instruction.init_single(0xD7, 2, 6),
+        .absolute = Instruction.init_single(0xCF, 3, 6),
+        .absolute_x = Instruction.init_single(0xDF, 3, 7),
+        .absolute_y = Instruction.init_single(0xDB, 3, 7),
+        .indirect_x = Instruction.init_single(0xC3, 2, 8),
+        .indirect_y = Instruction.init_single(0xD3, 2, 8),
+    }) },
+
+    .{ "ISC", create_instruction_set("isc", .{
+        .zeropage = Instruction.init_single(0xE7, 2, 5),
+        .zeropage_x = Instruction.init_single(0xF7, 2, 6),
+        .absolute = Instruction.init_single(0xEF, 3, 6),
+        .absolute_x = Instruction.init_single(0xFF, 3, 7),
+        .absolute_y = Instruction.init_single(0xFB, 3, 7),
+        .indirect_x = Instruction.init_single(0xE3, 2, 8),
+        .indirect_y = Instruction.init_single(0xF3, 2, 8),
+    }) },
+
+    .{ "SLO", create_instruction_set("slo", .{
+        .zeropage = Instruction.init_single(0x07, 2, 5),
+        .zeropage_x = Instruction.init_single(0x17, 2, 6),
+        .absolute = Instruction.init_single(0x0F, 3, 6),
+        .absolute_x = Instruction.init_single(0x1F, 3, 7),
+        .absolute_y = Instruction.init_single(0x1B, 3, 7),
+        .indirect_x = Instruction.init_single(0x03, 2, 8),
+        .indirect_y = Instruction.init_single(0x13, 2, 8),
+    }) },
+
+    .{ "RLA", create_instruction_set("rla", .{
+        .zeropage = Instruction.init_single(0x27, 2, 5),
+        .zeropage_x = Instruction.init_single(0x37, 2, 6),
+        .absolute = Instruction.init_single(0x2F, 3, 6),
+        .absolute_x = Instruction.init_single(0x3F, 3, 7),
+        .absolute_y = Instruction.init_single(0x3B, 3, 7),
+        .indirect_x = Instruction.init_single(0x23, 2, 8),
+        .indirect_y = Instruction.init_single(0x33, 2, 8),
+    }) },
+
+    .{ "SRE", create_instruction_set("sre", .{
+        .zeropage = Instruction.init_single(0x47, 2, 5),
+        .zeropage_x = Instruction.init_single(0x57, 2, 6),
+        .absolute = Instruction.init_single(0x4F, 3, 6),
+        .absolute_x = Instruction.init_single(0x5F, 3, 7),
+        .absolute_y = Instruction.init_single(0x5B, 3, 7),
+        .indirect_x = Instruction.init_single(0x43, 2, 8),
+        .indirect_y = Instruction.init_single(0x53, 2, 8),
+    }) },
+
+    .{ "RRA", create_instruction_set("rra", .{
+        .zeropage = Instruction.init_single(0x67, 2, 5),
+        .zeropage_x = Instruction.init_single(0x77, 2, 6),
+        .absolute = Instruction.init_single(0x6F, 3, 6),
+        .absolute_x = Instruction.init_single(0x7F, 3, 7),
+        .absolute_y = Instruction.init_single(0x7B, 3, 7),
+        .indirect_x = Instruction.init_single(0x63, 2, 8),
+        .indirect_y = Instruction.init_single(0x73, 2, 8),
+    }) },
+
+    .{ "ARR", create_instruction_set("arr", .{
+        .immediate = Instruction.init_single(0x6B, 2, 2),
+    }) },
+
+    .{ "ASR", create_instruction_set("asr", .{
+        .immediate = Instruction.init_single(0x4B, 2, 2),
+    }) },
+
+    .{ "ATX", create_instruction_set("atx", .{
+        .immediate = Instruction.init_single(0xAB, 2, 2),
+    }) },
+
+    .{ "AAC", create_instruction_set("aac", .{
+        .immediate = Instruction.init_multiple(&AacImmediateBytecodes, 2, 2),
+    }) },
+
+    .{ "AXA", create_instruction_set("axa", .{
+        .absolute_y = Instruction.init_single(0x9F, 3, 5),
+        .indirect_y = Instruction.init_single(0x93, 2, 6),
+    }) },
+
+    .{ "AXS", create_instruction_set("axs", .{
+        .immediate = Instruction.init_single(0xCB, 2, 2),
+    }) },
+
+    .{ "LAR", create_instruction_set("lar", .{
+        .absolute_y = Instruction.init_single(0xBB, 3, 4.1),
+    }) },
+
+    .{ "SXA", create_instruction_set("sxa", .{
+        .absolute_y = Instruction.init_single(0x9E, 3, 5),
+    }) },
+
+    .{ "SYA", create_instruction_set("sya", .{
+        .absolute_x = Instruction.init_single(0x9C, 3, 5),
+    }) },
+
+    .{ "XAA", create_instruction_set("xaa", .{
+        .immediate = Instruction.init_single(0x8B, 2, 2),
+    }) },
+
+    .{ "XAS", create_instruction_set("xas", .{
+        .absolute_y = Instruction.init_single(0x9B, 3, 5),
+    }) },
+});
+
+// Usage example
+test "instruction set usage" {
+    const allocator = std.testing.allocator;
+    _ = allocator; // autofix
+
+    // Get ADC instruction
+    if (Instructions.get("ADC")) |adc_set| {
+        std.debug.print("Instruction: {s}\n", .{adc_set.name});
+
+        // Get immediate mode
+        if (adc_set.modes.get(.immediate)) |immd| {
+            if (immd) |immediate_instr| {
+                std.debug.print("Immediate ADC: 0x{X}, size: {}, cycles: {d:.1}\n", .{
+                    switch (immediate_instr.bytecode) {
+                        .single => |b| b,
+                        .multiple => |bs| bs[0],
+                    },
+                    immediate_instr.size_bytes,
+                    immediate_instr.get_cycles(),
+                });
+            }
+        }
+    }
+}
