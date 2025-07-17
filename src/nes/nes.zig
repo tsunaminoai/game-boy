@@ -11,7 +11,7 @@ const Address = Word;
 const Width = 256;
 const Height = 240;
 
-const CPUHz = 1_789_773;
+const MOS6502Hz = 1_789_773;
 const VBlank = enum(usize) {
     start = 240,
     nmi = 241,
@@ -98,7 +98,7 @@ const Controller = struct {
     }
 };
 
-/// Software emulator for MOS Technologies 6502 CPU
+/// Software emulator for MOS Technologies 6502 MOS6502
 ///
 /// It is little endian (least significant byte first in 16bit words)
 ///
@@ -113,7 +113,7 @@ const Controller = struct {
 ///     [7] http://forum.6502.org/viewtopic.php?t=1708
 ///
 ///     [8] Assembler online: https://www.masswerk.at/6502/assembler.html
-///     [9] CPU startup sequence:  https://www.pagetable.com/?p=410
+///     [9] MOS6502 startup sequence:  https://www.pagetable.com/?p=410
 ///     [10] B-flag: http://wiki.nesdev.com/w/index.php/Status_flags#The_B_flag
 ///     [11] V-flag: http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
 ///     [12] JMP indirect 'bug':  http://forum.6502.org/viewtopic.php?f=2&t=6170
@@ -126,12 +126,12 @@ const Controller = struct {
 ///     [16] Undocumented opcodes: http://hitmen.c02.at/files/docs/c64/NoMoreSecrets-NMOS6510UnintendedOpcodes-20162412.pdf
 const MOS6502 = struct {
     memory: MemoryModule,
-    instuctions: void,
+    // instuctions: void,
 
-    registers: struct { a: Byte, x: Byte, y: Byte },
+    registers: struct { a: Byte = 0, x: Byte = 0, y: Byte = 0 } = .{},
 
-    pc: Address,
-    sp: Address,
+    pc: Address = 0,
+    sp: Address = 0,
 
     flags: packed struct(Byte) {
         n: bool = false,
@@ -141,11 +141,11 @@ const MOS6502 = struct {
         z: bool = false,
         c: bool = false,
         _: u2 = 0,
-    },
+    } = .{},
     cycles_since_reset: usize = 0,
-    started: false,
+    started: bool = false,
 
-    last_pc: Address,
+    last_pc: Address = 0,
     support_BCD: bool = false,
     aax_sets_flags: bool = false,
     undoc_support_level: usize = 1,
@@ -170,7 +170,7 @@ const MOS6502 = struct {
 
     // cycles taken to do the NMI or IRQ interrupt - (this is a guess, based on BRK, couldn't find a ref for this!)
     const InteruptRequestCyles = 7;
-    const OAMDMACPUCycles = 513;
+    const OAMDMAMOS6502Cycles = 513;
 
     pub fn reset() void {}
     pub fn set_reset_vector() void {}
@@ -178,7 +178,190 @@ const MOS6502 = struct {
     pub fn run_next() void {}
     pub fn stack_push() void {}
     pub fn stack_pop() void {}
+
+    const instructions = BYTECODE_DICT;
+
+    const byte_codes = std.StaticStringMap(*const fn (*MOS6502) void).initComptime(.{
+        .{ "adc", &MOS6502._adc },
+        .{ "and", &MOS6502._and },
+        .{ "asl", &MOS6502._asl },
+        .{ "bcc", &MOS6502._bcc },
+        .{ "bcs", &MOS6502._bcs },
+        .{ "beq", &MOS6502._beq },
+        .{ "bit", &MOS6502._bit },
+        .{ "bmi", &MOS6502._bmi },
+        .{ "bne", &MOS6502._bne },
+        .{ "bpl", &MOS6502._bpl },
+        .{ "sty", &MOS6502._sty },
+        .{ "tax", &MOS6502._tax },
+        .{ "tay", &MOS6502._tay },
+        .{ "tsx", &MOS6502._tsx },
+        .{ "txa", &MOS6502._txa },
+        .{ "txs", &MOS6502._txs },
+        .{ "tya", &MOS6502._tya },
+        .{ "dop", &MOS6502._dop },
+        .{ "top", &MOS6502._top },
+        .{ "kil", &MOS6502._kil },
+        .{ "lax", &MOS6502._lax },
+        .{ "aax", &MOS6502._aax },
+        .{ "dcp", &MOS6502._dcp },
+        .{ "isc", &MOS6502._isc },
+        .{ "slo", &MOS6502._slo },
+        .{ "rla", &MOS6502._rla },
+        .{ "sre", &MOS6502._sre },
+        .{ "rra", &MOS6502._rra },
+        .{ "arr", &MOS6502._arr },
+        .{ "asr", &MOS6502._asr },
+        .{ "atx", &MOS6502._atx },
+        .{ "aac", &MOS6502._aac },
+        .{ "axa", &MOS6502._axa },
+        .{ "axs", &MOS6502._axs },
+        .{ "lar", &MOS6502._lar },
+        .{ "sxa", &MOS6502._sxa },
+        .{ "sya", &MOS6502._sya },
+        .{ "xaa", &MOS6502._xaa },
+        .{ "xas", &MOS6502._xas },
+    });
+
+    // Helper function to get function pointer for an instruction
+    fn get_instruction_function(name: []const u8) *const fn (*MOS6502) void {
+        return byte_codes.FUNCTION_LOOKUP.get(name) orelse &MOS6502._nop;
+    }
+
+    // Usage functions
+    pub fn get_instruction_by_bytecode(bytecode: Byte) ?NamedInstruction {
+        return BYTECODE_DICT[bytecode];
+    }
+
+    pub fn execute_instruction(cpu: *MOS6502, bytecode: Byte) void {
+        if (get_instruction_by_bytecode(bytecode)) |instr| {
+            const func = get_instruction_function(instr.name);
+            func(cpu);
+        }
+    }
+    // All instruction implementation functions
+    fn _adc(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _and(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _asl(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _bcc(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _bcs(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _beq(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _bit(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _bmi(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _bne(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _bpl(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _sty(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _tax(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _tay(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _tsx(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _txa(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _txs(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _tya(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _dop(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _top(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _kil(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _lax(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _aax(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _dcp(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _isc(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _slo(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _rla(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _sre(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _rra(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _arr(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _asr(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _atx(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _aac(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _axa(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _axs(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _lar(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _sxa(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _sya(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _xaa(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _xas(self: *MOS6502) void {
+        _ = self;
+    }
+    fn _nop(self: *MOS6502) void {
+        _ = self;
+    }
 };
+
 const Cart = struct {
     ptr: *anyopaque,
     vtab: struct {
@@ -278,7 +461,7 @@ test {
     il.raise("nmi");
     try tst.expect(il.nmi);
 }
-/// https://wiki.nesdev.com/w/index.php/CPU_memory_map
+/// https://wiki.nesdev.com/w/index.php/MOS6502_memory_map
 const NESMappedRam = struct {
     const RamSize = 0x800; // 2kB of internal RAM
     const NumPPURegisters = 8; // number of ppu registers
@@ -368,7 +551,7 @@ const NESMappedRam = struct {
         @memcpy(block[0..PPUAddr], m.read_block(page << 8, OAMSize));
 
         self.ppu.write_oam(block);
-        // tell the interrupt listener that the CPU should pause due to OAM DMA
+        // tell the interrupt listener that the MOS6502 should pause due to OAM DMA
         self.intrListener.raise("oam_dma_pause");
     }
 };
@@ -580,6 +763,18 @@ const DopImmediateBytecodes = [_]Byte{ 0x80, 0x82, 0x89, 0xC2, 0xE2 };
 const TopAbsoluteXBytecodes = [_]Byte{ 0x1C, 0x3C, 0x5C, 0x7C, 0xDC, 0xFC };
 const KilImpliedBytecodes = [_]Byte{ 0x02, 0x12, 0x22, 0x32, 0x42, 0x52, 0x62, 0x72, 0x92, 0xB2, 0xD2, 0xF2 };
 const AacImmediateBytecodes = [_]Byte{ 0x0B, 0x2B };
+const NamedInstruction = struct {
+    name: []const u8,
+    bytecode: Byte,
+    mode: AddressMode,
+    size_bytes: usize,
+    cycles_tenths: u16,
+    function: *const fn (*MOS6502) void, // Adjust MOS6502 type as needed
+
+    pub fn get_cycles(self: NamedInstruction) f32 {
+        return @as(f32, @floatFromInt(self.cycles_tenths)) / 10.0;
+    }
+};
 
 const Instructions = std.StaticStringMap(InstructionSet).initComptime(.{
     .{ "ADC", create_instruction_set("adc", .{
@@ -832,4 +1027,75 @@ test "instruction set usage" {
             }
         }
     }
+}
+
+// Compile-time bytecode dictionary generation
+const BYTECODE_DICT: [256]?NamedInstruction = blk: {
+    @setEvalBranchQuota(10000); // Increase compile-time evaluation limit
+
+    var instructions: [256]?NamedInstruction = [_]?NamedInstruction{null} ** 256;
+
+    // Get all instruction names as a comptime array
+    const instruction_names = Instructions.keys();
+
+    // Iterate through all instructions at compile time
+    for (instruction_names) |instr_name| {
+        const instr_set = Instructions.get(instr_name).?;
+
+        // Iterate through all addressing modes
+        for (std.enums.values(AddressMode)) |mode| {
+            if (instr_set.modes.get(mode)) |instr| {
+                if (instr) |i| {
+                    switch (i.bytecode) {
+                        .single => |bytecode| {
+                            instructions[bytecode] = NamedInstruction{
+                                .name = instr_set.name,
+                                .bytecode = bytecode,
+                                .mode = mode,
+                                .size_bytes = i.size_bytes,
+                                .cycles_tenths = i.cycles_tenths,
+                                .function = MOS6502.byte_codes.get(i.name) orelse unreachable,
+                            };
+                        },
+                        .multiple => |bytecodes| {
+                            for (bytecodes) |bytecode| {
+                                instructions[bytecode] = NamedInstruction{
+                                    .name = instr_set.name,
+                                    .bytecode = bytecode,
+                                    .mode = mode,
+                                    .size_bytes = i.size_bytes,
+                                    .cycles_tenths = i.cycles_tenths,
+                                };
+                            }
+                        },
+                    }
+                }
+            }
+        }
+    }
+
+    break :blk instructions;
+};
+
+// Test and demonstration
+test "compile-time bytecode dictionary" {
+    // The dictionary is fully populated at compile time
+    const adc_immediate = MOS6502.instructions[0x69].?;
+
+    std.debug.print("ADC Immediate: {s}, cycles: {d:.1}, size: {}\n", .{
+        adc_immediate.name,
+        adc_immediate.get_cycles(),
+        adc_immediate.size_bytes,
+    });
+
+    // Test execution
+    var cpu = MOS6502{};
+    cpu.execute_instruction(0x69); // Execute ADC immediate
+
+    // Verify all slots are properly filled
+    var filled_count: usize = 0;
+    for (BYTECODE_DICT) |maybe_instr| {
+        if (maybe_instr != null) filled_count += 1;
+    }
+    std.debug.print("Total instructions populated: {}\n", .{filled_count});
 }
