@@ -97,9 +97,59 @@ const Controller = struct {
         _ = value; // autofix
     }
 };
+
+const Cart = struct {
+    ptr: *anyopaque,
+    vtab: struct {
+        read_ppu: ?*const fn (*anyopaque, Address) Byte = null,
+        write_ppu: ?*const fn (*anyopaque, Address, Byte) void = null,
+    },
+
+    const NES0 = struct {
+        // cpu
+        const RamStart = 0x6000;
+        const PrgRamStart = 0x8000;
+
+        const ChrRomStart = 0x0000; // ppu
+
+        pub fn init(rom_data: []const Byte, chr_rom_data: []const u8, ram_size_kb: usize, prog_start_addr: Address, mirror: MirrorPattern) !NES0 {
+            _ = rom_data; // autofix
+            _ = chr_rom_data; // autofix
+            _ = ram_size_kb; // autofix
+            _ = prog_start_addr; // autofix
+            _ = mirror; // autofix
+        }
+        pub fn cartridge(self: *NES0) Cart {
+            return .{
+                .ptr = self,
+                .vtab = .{
+                    .read_ppu = read_ppu,
+                    .write_ppu = write_ppu,
+                },
+            };
+        }
+        pub fn read(self: NES0) Byte {
+            _ = self; // autofix
+        }
+        pub fn write(self: *NES0, value: Byte) void {
+            _ = self; // autofix
+            _ = value; // autofix
+        }
+        fn read_ppu(ptr: *anyopaque, addr: Address) Byte {
+            _ = ptr; // autofix
+            _ = addr; // autofix
+        }
+        fn write_ppu(ptr: *anyopaque, addr: Address, value: Byte) void {
+            _ = ptr; // autofix
+            _ = addr; // autofix
+            _ = value; // autofix
+        }
+    };
+};
+
 pub const InteruptListener = struct {
     nmi: bool = false,
-    irq: bool = false,
+    irq: bool = false, // the actual IRQ line on the 6502 rests high and is low-triggered
     oam_dma_pause: bool = false,
 
     pub fn raise(self: *InteruptListener, comptime name: []const u8) void {
@@ -211,6 +261,9 @@ const NESMappedRam = struct {
         self.intrListener.raise("oam_dma_pause");
     }
 };
+
+const MirrorPattern = [4]u2;
+
 /// NES video (PPU) RAM, following the PPU memory map pattern
 /// map: https://wiki.nesdev.com/w/index.php/PPU_memory_map
 const NESVRAM = struct {
@@ -226,15 +279,15 @@ const NESVRAM = struct {
 
     // Mirror patterns
     // The mirror pattern specifies the underlying nametable at locations 0x2000, 0x2400, 0x2800 and 0x3200
-    const MirrorHorizontal = .{ 0, 0, 1, 1 };
-    const MirrorVertical = .{ 0, 1, 0, 1 };
-    const MirrorSingle = .{ 0, 0, 0, 0 };
-    const MirrorFourScreen = .{ 0, 1, 2, 3 };
-    const MirrorDiagonal = .{ 0, 1, 1, 0 };
-    const MirrorLShaped = .{ 0, 1, 1, 1 };
-    const Mirror3ScreenV = .{ 0, 2, 1, 2 };
-    const Mirror3ScreenH = .{ 0, 1, 2, 2 };
-    const Mirror3ScreenDiag = .{ 0, 1, 1, 2 };
+    const Horizontal: MirrorPattern = &.{ 0, 0, 1, 1 };
+    const Vertical: MirrorPattern = &.{ 0, 1, 0, 1 };
+    const Single: MirrorPattern = &.{ 0, 0, 0, 0 };
+    const FourScreen: MirrorPattern = &.{ 0, 1, 2, 3 };
+    const Diagonal: MirrorPattern = &.{ 0, 1, 1, 0 };
+    const LShaped: MirrorPattern = &.{ 0, 1, 1, 1 };
+    const @"3ScreenV": MirrorPattern = &.{ 0, 2, 1, 2 };
+    const @"3ScreenH": MirrorPattern = &.{ 0, 1, 2, 2 };
+    const @"3ScreenDiag": MirrorPattern = &.{ 0, 1, 1, 2 };
 
     pallet_ram: [PaletteSizeBytes]Byte = [_]Byte{0} ** PaletteSizeBytes,
     nametables: [NametablesSizeBytes]Byte = [_]Byte{0} ** NametablesSizeBytes,
