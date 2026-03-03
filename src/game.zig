@@ -1,10 +1,16 @@
 const std = @import("std");
+const Array = std.ArrayList;
+const Allocator = std.mem.Allocator;
+const tst = std.testing;
+const math = std.math;
 const rl = @import("raylib");
-const GameStatePtr = *anyopaque;
-const Config = @import("types.zig").Config;
-const Renderer = @import("renderer.zig");
 const GB = @import("gb");
 const Audio = @import("audio.zig");
+pub const TARGET_FRAME_RATE: u16 = 30;
+pub const NUM_FRAMES: u16 = 6;
+pub export fn run(app: *Game) void {
+    app.run();
+}
 
 const Game = @This();
 
@@ -18,8 +24,7 @@ delta_time: f64 = 0.0,
 running: bool = false,
 fps_capped: bool = false,
 debug: bool = false,
-config: Config = Config{},
-renderer: *Renderer = undefined,
+// renderer: *Renderer = undefined,
 chip: GB,
 clock_hz: f32 = 0,
 audio: Audio,
@@ -34,18 +39,15 @@ var frame_start: f64 = 0;
 ///
 /// # Returns
 /// A pointer to the game state.
-pub fn init(config: Config) GameStatePtr {
-    std.log.debug("Starting game with config: {any}\n", .{config});
-    var alloc = std.heap.c_allocator;
-
+pub fn init(alloc: std.mem.Allocator) !*Game {
     var self = alloc.create(Game) catch @panic("Failed to allocate Game");
-    self.reload(Config{});
+    // self.reload(Config{});
 
     self.chip = GB.init(0xFFFF) catch @panic("Failed to initialize CPU");
     self.chip.rom0.loadFromFile(ROM) catch @panic("Failed to load ROM");
 
-    std.log.debug("Initialized Chip: {}\n", .{self.chip});
-    self.init_renderer() catch @panic("Failed to initialize renderer");
+    std.log.debug("Initialized Chip: {f}\n", .{self.chip});
+    // self.init_renderer() catch @panic("Failed to initialize renderer");
     self.audio = Audio.init(self);
     var thread = std.Thread.spawn(
         .{},
@@ -58,9 +60,9 @@ pub fn init(config: Config) GameStatePtr {
     return self;
 }
 
-pub fn init_renderer(self: *Game) !void {
-    self.renderer = try Renderer.init(self.alloc, self);
-}
+// pub fn init_renderer(self: *Game) !void {
+// self.renderer = try Renderer.init(self.alloc, self);
+// }
 
 /// Handles the events for the game.
 pub fn handleEvents(self: *Game) void {
@@ -112,22 +114,22 @@ pub fn deinit(self: *Game) void {
 }
 
 /// Reloads the game with the given configuration.
-pub fn reload(self: *Game, config: Config) void {
-    self.* = Game{
-        .screen = .{
-            .x = config.width,
-            .y = config.height,
-        },
-        .chip = undefined,
-        .target_frame_rate = 1.0 / (config.target_fps),
-        .alloc = std.heap.c_allocator,
-        .audio = Audio.init(self),
-        .config = config,
-    };
-    self.chip = GB.init(0xFFFF) catch @panic("Failed to initialize CPU");
-    self.chip.rom0.loadFromFile(ROM) catch @panic("Failed to load ROM");
-    self.init_renderer() catch @panic("Failed to initialize renderer");
-}
+// pub fn reload(self: *Game, config: Config) void {
+//     self.* = Game{
+//         .screen = .{
+//             .x = config.width,
+//             .y = config.height,
+//         },
+//         .chip = undefined,
+//         .target_frame_rate = 1.0 / (config.target_fps),
+//         .alloc = std.heap.c_allocator,
+//         .audio = Audio.init(self),
+//         .config = config,
+//     };
+//     self.chip = GB.init(0xFFFF) catch @panic("Failed to initialize CPU");
+//     self.chip.rom0.loadFromFile(ROM) catch @panic("Failed to load ROM");
+//     self.init_renderer() catch @panic("Failed to initialize renderer");
+// }
 
 /// Starts the frame.
 pub fn frameStart(_: *Game) void {
@@ -165,4 +167,8 @@ fn debugDraw(self: *Game) void {
     ) catch unreachable;
     rl.drawFPS(@intFromFloat(self.config.width - 75), 10);
     rl.drawText(&buffer, @intFromFloat(self.config.width - 75), 30, 10, rl.Color.white);
+}
+
+pub fn shouldClose() bool {
+    return rl.windowShouldClose();
 }

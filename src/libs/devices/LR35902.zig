@@ -9,7 +9,7 @@ const ReadError = Device.ReadError;
 const WriteError = Device.WriteError;
 pub const RegisterID = enum { AF, DE, BC, HL, SP, PC, A, B, C, D, E, H, L };
 
-bus: Device,
+bus: *Bus,
 flags: Flags = .{},
 stack: [0x100]u16 = undefined,
 regs: [12]u8 = undefined,
@@ -31,7 +31,7 @@ pub fn init(b: *Bus) !CPU {
         .{ .full = 0x0100 }, // PC
     };
     const self = CPU{
-        .bus = b.device(),
+        .bus = b,
         .flags = .{},
         .stack = [_]u16{0} ** 0x100,
         .regs = [_]u8{0} ** 12,

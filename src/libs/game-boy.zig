@@ -21,12 +21,10 @@ pub fn init(comptime size: usize) !GB {
 
 pub fn format(
     self: GB,
-    _: []const u8,
-    _: anytype,
-    writer: anytype,
+    writer: *std.Io.Writer,
 ) !void {
     try writer.print("GB\n", .{});
-    try writer.print("{}", .{self.cpu.bus});
+    try writer.print("{f}", .{self.cpu.bus});
 }
 
 test {

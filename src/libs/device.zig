@@ -106,14 +106,7 @@ pub fn tick(self: *Device) void {
     }
 }
 
-pub fn format(
-    self: Device,
-    fmt: []const u8,
-    options: anytype,
-    writer: anytype,
-) !void {
-    _ = options;
-    _ = fmt;
+pub fn format(self: Device, writer: *std.Io.Writer) !void {
     try writer.print("[{X:0>4}-{X:0>4}] {s}", .{
         self.startAddress,
         self.endAddress,

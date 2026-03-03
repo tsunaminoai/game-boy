@@ -71,7 +71,7 @@ pub fn build(b: *std.Build) !void {
             .root_module = b.addModule(
                 "state",
                 .{
-                    .root_source_file = b.path("src/root.zig"),
+                    .root_source_file = b.path("src/game.zig"),
                     .target = target,
                     .optimize = optimize,
                 },
