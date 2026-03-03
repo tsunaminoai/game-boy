@@ -10,87 +10,79 @@ pub const ExeName = "game-boy";
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-    const game_only = b.option(
-        bool,
-        "game_only",
-        "only build the game shared library",
-    ) orelse false;
 
-    const raylib_dep = b.dependency("raylib-zig", .{
+    const hotReload = if (target.query.os_tag == .emscripten) false else b.option(bool, "hotReload", "Build the game as a dll to allow for automatic hot-reload of code") orelse true;
+    var options = b.addOptions();
+    options.addOption(bool, "hotReload", hotReload);
+
+    var raylib_dep = b.dependency("raylib_zig", .{
         .target = target,
         .optimize = optimize,
-        .shared = true,
-        .linux_display_backend = .X11,
     });
-
     const raylib = raylib_dep.module("raylib");
-    const raygui = raylib_dep.module("raygui");
     const raylib_artifact = raylib_dep.artifact("raylib");
 
-    //web exports are completely separate
-    if (target.query.os_tag == .emscripten) {
-        const exe_lib = try rlz.emcc.compileForEmscripten(b, ExeName, "src/main.zig", target, optimize);
-        //FIXME: There is a bug in emsc for 0.13.0 https://github.com/Not-Nik/raylib-zig/issues/108 upstream
-
-        exe_lib.linkLibrary(raylib_artifact);
-        exe_lib.root_module.addImport("raylib", raylib);
-
-        // Note that raylib itself is not actually added to the exe_lib output file, so it also needs to be linked with emscripten.
-        const link_step = try rlz.emcc.linkWithEmscripten(b, &[_]*std.Build.Step.Compile{ exe_lib, raylib_artifact });
-
-        b.getInstallStep().dependOn(&link_step.step);
-        const run_step = try rlz.emcc.emscriptenRunStep(b);
-        run_step.step.dependOn(&link_step.step);
-        const run_option = b.step("run", "Run " ++ ExeName);
-        run_option.dependOn(&run_step.step);
-        return;
-    }
     const game_boy_module = b.addModule(ChipLibName, .{
         .root_source_file = b.path("src/libs/game-boy.zig"),
         .target = target,
         .optimize = optimize,
     });
 
-    const chip_lib = b.addSharedLibrary(.{
+    const chip_lib = b.addLibrary(.{
         .name = ChipLibName,
-        .root_source_file = b.path("src/libs/game-boy.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = game_boy_module,
         .version = ChipVersion,
+        .linkage = .dynamic,
     });
     chip_lib.root_module.addImport("game-boy", game_boy_module);
     b.installArtifact(chip_lib);
-
-    const game_lib = b.addSharedLibrary(.{
-        .name = LibName,
-        .root_source_file = b.path("src/root.zig"),
+    // Raylib for native builds
+    const raylib_dyn = b.dependency("raylib_zig", .{
         .target = target,
         .optimize = optimize,
-        .version = LibVersion,
+        .linkage = .dynamic,
     });
-    game_lib.linkLibrary(chip_lib);
-    game_lib.root_module.addImport(ChipLibName, game_boy_module);
-    game_lib.linkLibrary(raylib_artifact);
-    game_lib.root_module.addImport("raylib", raylib);
-    game_lib.root_module.addImport("raygui", raygui);
-    b.installArtifact(game_lib);
 
-    if (!game_only) {
-        const exe = b.addExecutable(.{
-            .name = ExeName,
-            .root_source_file = b.path("src/main.zig"),
-            .optimize = optimize,
-            .target = target,
+    const raylib_d = raylib_dyn.module("raylib"); // main raylib module
+    const raygui = raylib_dyn.module("raygui"); // raygui module
+    const raylib_lib = raylib_dyn.artifact("raylib"); // raylib C library
+    const exe_mod = b.createModule(.{
+        .root_source_file = b.path("src/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    exe_mod.addImport("gb", game_boy_module);
+    exe_mod.addOptions("config", options);
+
+    exe_mod.addImport("raylib", raylib_d);
+
+    const exe = b.addExecutable(.{
+        .name = "cribbage",
+        .root_module = exe_mod,
+    });
+    exe.linkLibrary(raylib_lib);
+    exe.root_module.addImport("raygui", raygui);
+    b.installArtifact(exe);
+
+    if (hotReload) {
+        const lib = b.addLibrary(.{
+            .name = "cribbage",
+            .linkage = .dynamic,
+            .root_module = b.addModule(
+                "state",
+                .{
+                    .root_source_file = b.path("src/root.zig"),
+                    .target = target,
+                    .optimize = optimize,
+                },
+            ),
         });
 
-        exe.linkLibrary(raylib_artifact);
-        exe.root_module.addImport("raylib", raylib);
-
-        const run_cmd = b.addRunArtifact(exe);
-        const run_step = b.step("run", "Run " ++ ExeName);
-        run_step.dependOn(&run_cmd.step);
-
-        b.installArtifact(exe);
+        b.installArtifact(lib);
+        lib.linkLibrary(raylib_artifact);
+        lib.root_module.addImport("gb", game_boy_module);
+        lib.root_module.addImport("raylib", raylib);
+        lib.root_module.addImport("raygui", raygui);
     }
 
     // build docs
@@ -105,9 +97,7 @@ pub fn build(b: *std.Build) !void {
     //Chip tests
     const chip_test = b.addTest(.{
         .name = "chip",
-        .root_source_file = b.path("src/libs/game-boy.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = game_boy_module,
     });
     const chip_test_step = b.step("test_chip", "Run chip tests");
     chip_test_step.dependOn(&chip_test.step);
